@@ -120,11 +120,21 @@ async function fetchCastsWithPagination(
 }
 
 export async function GET() {
+  const startTime = Date.now();
+  console.log("🔵 [API /casts/today] GET request received");
+  
   try {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayStartTimestamp = todayStart.getTime();
     const nowTimestamp = Date.now();
+    
+    console.log("🔵 [API /casts/today] Date range:", {
+      todayStart: new Date(todayStartTimestamp).toISOString(),
+      now: new Date(nowTimestamp).toISOString(),
+      todayStartTimestamp,
+      nowTimestamp,
+    });
 
     const allCasts: Cast[] = [];
     let cursor: string | undefined;
@@ -133,18 +143,32 @@ export async function GET() {
     const maxPages = 20; // Limit to prevent infinite loops
 
     // Fetch casts in pages until we have enough from today or run out
+    console.log("🔵 [API /casts/today] Starting pagination loop, maxPages:", maxPages);
     while (hasMore && pageCount < maxPages) {
-      const { casts, nextCursor } = await fetchCastsWithPagination(cursor, 100);
+      const pageStartTime = Date.now();
+      console.log(`🔵 [API /casts/today] Fetching page ${pageCount + 1} with cursor: ${cursor}`);
       
-      console.log(`Fetched page ${pageCount + 1}: ${casts?.length || 0} casts, nextCursor: ${nextCursor}`);
+      const { casts, nextCursor } = await fetchCastsWithPagination(cursor, 100);
+      const pageTime = Date.now() - pageStartTime;
+      
+      console.log(`🔵 [API /casts/today] Page ${pageCount + 1} fetched in ${pageTime}ms:`, {
+        castsCount: casts?.length || 0,
+        nextCursor,
+        hasCasts: !!casts && casts.length > 0,
+      });
       
       if (!casts || casts.length === 0) {
-        console.log("No more casts to fetch");
+        console.log("🔵 [API /casts/today] ⚠️ No casts in this page, stopping pagination");
         hasMore = false;
         break;
       }
 
       // Process and filter casts
+      console.log(`🔵 [API /casts/today] Processing ${casts.length} casts from page ${pageCount + 1}`);
+      let todayCastsCount = 0;
+      let pastCastsCount = 0;
+      let futureCastsCount = 0;
+      
       for (const cast of casts) {
         const castRecord = cast as unknown as Record<string, unknown>;
         const timestamp = (castRecord.timestamp as number | undefined) || 
@@ -153,12 +177,17 @@ export async function GET() {
 
         // If we've gone past today, stop fetching
         if (timestamp < todayStartTimestamp) {
+          pastCastsCount++;
+          if (pastCastsCount === 1) {
+            console.log(`🔵 [API /casts/today] ⚠️ Found cast from past (${new Date(timestamp).toISOString()}), stopping pagination`);
+          }
           hasMore = false;
           break;
         }
 
         // Only include casts from today
         if (timestamp >= todayStartTimestamp && timestamp <= nowTimestamp) {
+          todayCastsCount++;
           const author = castRecord.author as { 
             fid?: number; 
             username?: string; 
@@ -198,24 +227,43 @@ export async function GET() {
           };
 
           allCasts.push(processedCast);
+        } else {
+          futureCastsCount++;
         }
       }
+      
+      console.log(`🔵 [API /casts/today] Page ${pageCount + 1} processing results:`, {
+        totalCasts: casts.length,
+        todayCasts: todayCastsCount,
+        pastCasts: pastCastsCount,
+        futureCasts: futureCastsCount,
+        allCastsTotal: allCasts.length,
+      });
 
       // Check if we should continue
       if (!nextCursor || nextCursor === cursor) {
+        console.log(`🔵 [API /casts/today] No next cursor or cursor unchanged, stopping pagination`);
         hasMore = false;
       } else {
         cursor = nextCursor;
         pageCount++;
+        console.log(`🔵 [API /casts/today] Continuing to page ${pageCount + 1} with cursor: ${cursor}`);
       }
 
       // If we have enough casts from today, we can stop
       if (allCasts.length >= 1000) {
+        console.log(`🔵 [API /casts/today] Reached 1000 casts limit, stopping pagination`);
         hasMore = false;
       }
     }
+    
+    console.log(`🔵 [API /casts/today] Pagination complete:`, {
+      totalPages: pageCount,
+      totalCasts: allCasts.length,
+    });
 
     // Sort by engagement (likes + recasts + replies)
+    console.log("🔵 [API /casts/today] Sorting casts by engagement...");
     const sortedCasts = allCasts.sort((a, b) => {
       const aEngagement = (a.reactions?.likes || 0) + 
                          (a.reactions?.recasts || 0) + 
@@ -226,16 +274,35 @@ export async function GET() {
       return bEngagement - aEngagement;
     });
 
+    const top20 = sortedCasts.slice(0, 20);
+    console.log("🔵 [API /casts/today] ✅ Returning response:", {
+      totalCasts: allCasts.length,
+      top20Count: top20.length,
+      top3Engagement: top20.slice(0, 3).map(c => ({
+        hash: c.hash.substring(0, 10),
+        engagement: (c.reactions?.likes || 0) + (c.reactions?.recasts || 0) + (c.reactions?.replies || 0),
+      })),
+    });
+    
+    const totalTime = Date.now() - startTime;
+    console.log(`🔵 [API /casts/today] 🏁 Request completed in ${totalTime}ms`);
+
     // Return top 20
     return NextResponse.json({
-      casts: sortedCasts.slice(0, 20),
+      casts: top20,
       total: allCasts.length,
     });
   } catch (error) {
-    console.error("Error fetching today's casts:", error);
+    const totalTime = Date.now() - startTime;
+    console.error(`🔵 [API /casts/today] ❌ Error after ${totalTime}ms:`, error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     const errorStack = error instanceof Error ? error.stack : undefined;
-    console.error("Error details:", { errorMessage, errorStack, error });
+    console.error("🔵 [API /casts/today] ❌ Error details:", { 
+      errorMessage, 
+      errorStack, 
+      error,
+      errorType: error instanceof Error ? error.name : typeof error,
+    });
     
     // Return a more detailed error response
     return NextResponse.json(
@@ -243,6 +310,7 @@ export async function GET() {
         error: "Failed to fetch today's casts", 
         details: errorMessage,
         type: error instanceof Error ? error.name : typeof error,
+        timestamp: new Date().toISOString(),
       },
       { status: 500 }
     );

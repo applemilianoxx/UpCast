@@ -81,41 +81,103 @@ export default function HomeTab() {
   // Fetch today's top casts from API
   useEffect(() => {
     async function fetchTodaysCasts() {
+      const startTime = Date.now();
+      console.log("🏠 [HomeTab] Starting to fetch today's casts...");
+      
       try {
         setLoading(true);
-        console.log("Fetching today's casts from API...");
+        console.log("🏠 [HomeTab] Loading state set to true");
+        console.log("🏠 [HomeTab] Making fetch request to /api/casts/today");
+        
         const response = await fetch("/api/casts/today");
-        console.log("Response status:", response.status);
+        const fetchTime = Date.now() - startTime;
+        console.log(`🏠 [HomeTab] Fetch completed in ${fetchTime}ms`);
+        console.log("🏠 [HomeTab] Response status:", response.status);
+        console.log("🏠 [HomeTab] Response ok:", response.ok);
+        console.log("🏠 [HomeTab] Response headers:", Object.fromEntries(response.headers.entries()));
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          console.error("API error:", errorData);
-          throw new Error(errorData.error || "Failed to fetch today's casts");
+          const errorText = await response.text();
+          console.error("🏠 [HomeTab] ❌ Response not OK, error text:", errorText);
+          
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+            console.error("🏠 [HomeTab] ❌ Parsed error data:", errorData);
+          } catch (e) {
+            console.error("🏠 [HomeTab] ❌ Could not parse error as JSON:", e);
+            errorData = { error: errorText };
+          }
+          
+          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
         }
         
+        console.log("🏠 [HomeTab] ✅ Response OK, parsing JSON...");
         const data = await response.json();
-        console.log("Received data:", data);
-        console.log("Casts count:", data.casts?.length || 0);
+        const totalTime = Date.now() - startTime;
+        console.log(`🏠 [HomeTab] ✅ JSON parsed in ${totalTime}ms total`);
+        console.log("🏠 [HomeTab] 📦 Received data structure:", {
+          hasCasts: !!data.casts,
+          castsType: Array.isArray(data.casts) ? 'array' : typeof data.casts,
+          castsLength: data.casts?.length || 0,
+          total: data.total,
+          keys: Object.keys(data),
+          firstCast: data.casts?.[0] ? {
+            hash: data.casts[0].hash,
+            text: data.casts[0].text?.substring(0, 50),
+            author: data.casts[0].author?.username,
+          } : null,
+        });
+        console.log("🏠 [HomeTab] 📊 Full data object:", data);
         
-        setRankedCasts(data.casts || []);
+        if (data.casts && Array.isArray(data.casts)) {
+          console.log(`🏠 [HomeTab] ✅ Setting ${data.casts.length} casts to state`);
+          setRankedCasts(data.casts);
+        } else {
+          console.warn("🏠 [HomeTab] ⚠️ No casts array in response, setting empty array");
+          setRankedCasts([]);
+        }
       } catch (error) {
-        console.error("Error fetching today's casts:", error);
+        const totalTime = Date.now() - startTime;
+        console.error(`🏠 [HomeTab] ❌ Error after ${totalTime}ms:`, error);
+        console.error("🏠 [HomeTab] ❌ Error details:", {
+          name: error instanceof Error ? error.name : 'Unknown',
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        console.error("🏠 [HomeTab] ❌ Setting empty casts array due to error");
         setRankedCasts([]);
       } finally {
+        const totalTime = Date.now() - startTime;
+        console.log(`🏠 [HomeTab] 🏁 Finished fetch attempt in ${totalTime}ms`);
         setLoading(false);
+        console.log("🏠 [HomeTab] Loading state set to false");
       }
     }
 
+    console.log("🏠 [HomeTab] useEffect triggered, calling fetchTodaysCasts");
     fetchTodaysCasts();
   }, []);
 
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log("🏠 [HomeTab] State update:", {
+      loading,
+      rankedCastsCount: rankedCasts.length,
+      hasCasts: rankedCasts.length > 0,
+    });
+  }, [loading, rankedCasts]);
+
   if (loading) {
+    console.log("🏠 [HomeTab] Rendering loading state");
     return (
       <div className={styles.container}>
         <div className={styles.loading}>Loading top casts...</div>
       </div>
     );
   }
+  
+  console.log("🏠 [HomeTab] Rendering casts list with", rankedCasts.length, "casts");
 
   return (
     <div className={styles.container}>
