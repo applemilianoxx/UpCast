@@ -45,10 +45,10 @@ export default function ProfileTab() {
     ((userAny?.profile as Record<string, unknown> | undefined)?.image as string | undefined) ||
     (userAny?.profileImage as string | undefined);
   // Fetch user's casts if FID is available
-  const { data: userCastsData, loading: castsLoading } = useLatestCasts({
-    fid: user?.fid,
-    limit: 50,
-  });
+  // Note: useLatestCasts with fid gets casts by that user, but may only return recent ones
+  const { data: userCastsData, loading: castsLoading } = useLatestCasts(
+    user?.fid ? { fid: user.fid, limit: 100 } : { limit: 0 }
+  );
 
   // Debug: Log casts data
   if (typeof window !== 'undefined') {
