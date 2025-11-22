@@ -14,13 +14,6 @@ interface UserStats {
   bestRank: number;
 }
 
-interface UserCast {
-  hash: string;
-  text: string;
-  rank?: number;
-  score: number;
-  timestamp: number;
-}
 
 export default function ProfileTab() {
   const { context } = useMiniKit();
@@ -111,12 +104,6 @@ export default function ProfileTab() {
     bestRank: 3,
   });
 
-  const formatTime = (timestamp: number) => {
-    const hours = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60));
-    if (hours < 1) return "Just now";
-    if (hours < 24) return `${hours}h ago`;
-    return `${Math.floor(hours / 24)}d ago`;
-  };
 
   return (
     <div className={styles.container}>
@@ -168,7 +155,7 @@ export default function ProfileTab() {
           </div>
         ) : (
           <div className={styles.castsList}>
-            {userCasts.map((cast, index) => (
+            {userCasts.map((cast) => (
               <div key={cast.hash} className={styles.castCard}>
                 <div className={styles.castContent}>
                   <p className={styles.castText}>{cast.text}</p>
