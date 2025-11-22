@@ -2,6 +2,7 @@
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { useState, useEffect } from "react";
 import { Flame, Square, MessageSquare } from "lucide-react";
+import { useLatestCasts } from "farcasterkit";
 import styles from "./ProfileTab.module.css";
 
 interface UserStats {
@@ -62,10 +63,16 @@ export default function ProfileTab() {
   }>>([]);
   const [castsLoading, setCastsLoading] = useState(false);
 
-  // Fetch all user casts from API
+  // Fallback: Use farcasterkit hook directly
+  const { data: fallbackCastsData, loading: fallbackLoading } = useLatestCasts(
+    user?.fid ? { fid: user.fid, limit: 200 } : { limit: 0 }
+  );
+
+  // Fetch all user casts from API with fallback
   useEffect(() => {
     async function fetchUserCasts() {
       if (!user?.fid) {
+        console.log("No FID available, skipping fetch");
         return;
       }
 
@@ -76,7 +83,7 @@ export default function ProfileTab() {
         console.log("User casts response status:", response.status);
         
         if (!response.ok) {
-          const errorData = await response.json();
+          const errorData = await response.json().catch(() => ({}));
           console.error("API error:", errorData);
           throw new Error(errorData.error || "Failed to fetch user casts");
         }
@@ -85,17 +92,74 @@ export default function ProfileTab() {
         console.log("Received user casts data:", data);
         console.log('Fetched user casts:', data.casts?.length || 0, 'Total:', data.total);
         
-        setUserCasts(data.casts || []);
+        if (data.casts && data.casts.length > 0) {
+          setUserCasts(data.casts);
+          setCastsLoading(false);
+          return;
+        }
+        
+        // Fallback: Use hook data if API returns empty
+        console.log("API returned empty, using fallback data");
+        throw new Error("No casts from API");
       } catch (error) {
-        console.error("Error fetching user casts:", error);
-        setUserCasts([]);
-      } finally {
+        console.error("Error fetching user casts from API, using fallback:", error);
+        // Fallback to hook data
+        if (fallbackCastsData && Array.isArray(fallbackCastsData) && fallbackCastsData.length > 0) {
+          console.log("Using fallback casts:", fallbackCastsData.length);
+          processFallbackCasts(fallbackCastsData);
+        } else {
+          console.log("No fallback data available either");
+          setUserCasts([]);
+        }
         setCastsLoading(false);
       }
     }
 
+    function processFallbackCasts(castsData: unknown[]) {
+      const casts = castsData.map((cast: unknown) => {
+        const castRecord = cast as unknown as Record<string, unknown>;
+        const author = castRecord.author as { fid?: number; username?: string; displayName?: string; pfp?: { url?: string } } | undefined;
+        const reactions = castRecord.reactions as { likes?: number; recasts?: number; replies?: number } | undefined;
+        
+        const likes = reactions?.likes || (castRecord.likes as number | undefined) || 0;
+        const recasts = reactions?.recasts || (castRecord.recasts as number | undefined) || 0;
+        const replies = reactions?.replies || (castRecord.replies as number | undefined) || 0;
+        const timestamp = (castRecord.timestamp as number | undefined) || (castRecord.publishedAt as number | undefined) || Date.now();
+        
+        // Calculate score
+        const age = Date.now() - timestamp;
+        const hoursOld = age / (1000 * 60 * 60);
+        const engagement = likes * 1 + recasts * 2 + replies * 1.5;
+        const recencyBonus = Math.max(0, 24 - hoursOld) / 24;
+        const score = engagement * (1 + recencyBonus * 0.5);
+
+        return {
+          hash: (castRecord.hash as string | undefined) || (castRecord.id as string | undefined) || "",
+          text: (castRecord.text as string | undefined) || (castRecord.content as string | undefined) || "",
+          author: {
+            fid: author?.fid || (castRecord.fid as number | undefined) || 0,
+            username: author?.username || (castRecord.username as string | undefined) || "unknown",
+            displayName: author?.displayName || (castRecord.displayName as string | undefined) || "Unknown",
+            pfp: { url: author?.pfp?.url || ((castRecord.pfp as { url?: string } | undefined)?.url) || "" },
+          },
+          reactions: {
+            likes,
+            recasts,
+            replies,
+          },
+          timestamp,
+          score,
+        };
+      });
+
+      // Sort by score and return top 10
+      const sorted = casts.sort((a, b) => b.score - a.score);
+      console.log("Processed fallback casts:", sorted.length);
+      setUserCasts(sorted.slice(0, 10));
+    }
+
     fetchUserCasts();
-  }, [user?.fid]);
+  }, [user?.fid, fallbackCastsData]);
 
   // Calculate stats from userCasts
   const stats: UserStats = {

@@ -33,12 +33,26 @@ async function fetchUserCastsWithPagination(
     url.searchParams.set("cursor", cursor.toString());
   }
 
-  const response = await fetch(url.toString());
+  const response = await fetch(url.toString(), {
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+  
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`API error for FID ${fid}: ${response.status} ${response.statusText}`, errorText);
     throw new Error(`Failed to fetch user casts: ${response.statusText}`);
   }
 
   const data = await response.json();
+  console.log(`Farcaster Kit API response for FID ${fid}:`, { 
+    isArray: Array.isArray(data), 
+    hasCasts: !!data.casts, 
+    keys: Object.keys(data),
+    firstItem: Array.isArray(data) ? data[0] : data.casts?.[0]
+  });
+  
   // Handle different response formats
   const casts = Array.isArray(data) ? data : (data.casts || data.data || []);
   const nextCursor = data.nextCursor || data.cursor || data.next?.cursor;
@@ -93,7 +107,10 @@ export async function GET(request: NextRequest) {
     while (hasMore && pageCount < maxPages) {
       const { casts, nextCursor } = await fetchUserCastsWithPagination(fid, cursor, 100);
       
+      console.log(`Fetched page ${pageCount + 1} for FID ${fid}: ${casts?.length || 0} casts, nextCursor: ${nextCursor}`);
+      
       if (!casts || casts.length === 0) {
+        console.log("No more casts to fetch");
         hasMore = false;
         break;
       }
@@ -167,8 +184,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error fetching user casts:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to fetch user casts" },
+      { error: "Failed to fetch user casts", details: errorMessage },
       { status: 500 }
     );
   }
