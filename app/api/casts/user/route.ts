@@ -26,20 +26,64 @@ interface Cast {
 
 async function fetchUserCastsWithPagination(
   fid: number,
-  cursor?: number,
+  cursor?: string,
   limit: number = 100
-): Promise<{ casts: unknown[]; nextCursor?: number }> {
+): Promise<{ casts: unknown[]; nextCursor?: string }> {
+  // Try Neynar API first, fallback to Farcaster Kit
+  const useNeynar = !!NEYNAR_API_KEY;
+  
+  if (useNeynar) {
+    try {
+      const url = new URL(`${NEYNAR_API}/farcaster/casts`);
+      url.searchParams.set("fid", fid.toString());
+      url.searchParams.set("limit", limit.toString());
+      if (cursor) {
+        url.searchParams.set("cursor", cursor);
+      }
+
+      console.log(`Fetching user casts from Neynar: ${url.toString()}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      
+      const response = await fetch(url.toString(), {
+        headers: {
+          'Accept': 'application/json',
+          'api_key': NEYNAR_API_KEY,
+        },
+        signal: controller.signal,
+        cache: 'no-store',
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`Neynar API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const casts = data.result?.casts || data.casts || [];
+      const nextCursor = data.result?.next?.cursor || data.next?.cursor;
+      
+      console.log(`Neynar API response for FID ${fid}:`, { castsCount: casts.length, nextCursor });
+      
+      return { casts, nextCursor };
+    } catch (error) {
+      console.error("Neynar API failed, trying Farcaster Kit:", error);
+    }
+  }
+  
+  // Fallback to Farcaster Kit API
   const url = new URL(`${FARCASTER_KIT_API}/casts/latest`);
   url.searchParams.set("fid", fid.toString());
   url.searchParams.set("limit", limit.toString());
   if (cursor) {
-    url.searchParams.set("cursor", cursor.toString());
+    url.searchParams.set("cursor", cursor);
   }
 
   try {
-    console.log(`Fetching user casts from: ${url.toString()}`);
+    console.log(`Fetching user casts from Farcaster Kit: ${url.toString()}`);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     
     const response = await fetch(url.toString(), {
       headers: {
@@ -59,33 +103,21 @@ async function fetchUserCastsWithPagination(
     }
 
     const data = await response.json();
-    console.log(`Farcaster Kit API response for FID ${fid}:`, { 
-      isArray: Array.isArray(data), 
-      hasCasts: !!data.casts, 
-      keys: Object.keys(data),
-      firstItem: Array.isArray(data) ? data[0] : data.casts?.[0]
-    });
-    
-    // Handle different response formats
     const casts = Array.isArray(data) ? data : (data.casts || data.data || []);
     const nextCursor = data.nextCursor || data.cursor || data.next?.cursor;
     
-    return {
-      casts,
-      nextCursor,
-    };
+    console.log(`Farcaster Kit API response for FID ${fid}:`, { castsCount: casts.length, nextCursor });
+    
+    return { casts, nextCursor };
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        console.error('Request timeout after 15 seconds');
         throw new Error('Request timeout');
       }
       if (error.message.includes('fetch failed')) {
-        console.error('Network error - fetch failed:', error.message);
         throw new Error(`Network error: ${error.message}`);
       }
     }
-    console.error('Fetch error:', error);
     throw error;
   }
 }
