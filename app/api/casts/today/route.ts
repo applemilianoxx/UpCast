@@ -90,15 +90,14 @@ async function fetchCastsWithPagination(
     }
   }
   
-  // Fallback to Farcaster Kit API
-  const url = new URL("https://api.farcasterkit.com/casts/latest");
-  url.searchParams.set("limit", limit.toString());
-  if (cursor) {
-    url.searchParams.set("cursor", cursor);
-  }
-
+  // Fallback to Farcaster Kit API - try with simpler approach
+  const urlString = `https://api.farcasterkit.com/casts/latest?limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`;
+  
   try {
-    console.log(`🔵 [fetchCastsWithPagination] Attempting Farcaster Kit fetch: ${url.toString()}`);
+    console.log(`🔵 [fetchCastsWithPagination] Attempting Farcaster Kit fetch: ${urlString}`);
+    console.log(`🔵 [fetchCastsWithPagination] Fetch function type: ${typeof fetch}`);
+    console.log(`🔵 [fetchCastsWithPagination] URL object test:`, new URL(urlString).toString());
+    
     const fetchStart = Date.now();
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
@@ -108,27 +107,36 @@ async function fetchCastsWithPagination(
     
     let response;
     try {
-      response = await fetch(url.toString(), {
+      // Try with minimal options first
+      const fetchOptions: RequestInit = {
+        method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'UPLYST/1.0',
         },
         signal: controller.signal,
-        cache: 'no-store',
-      });
+      };
+      
+      console.log(`🔵 [fetchCastsWithPagination] Making fetch call with options:`, JSON.stringify(fetchOptions, null, 2));
+      response = await fetch(urlString, fetchOptions);
       clearTimeout(timeoutId);
       const fetchTime = Date.now() - fetchStart;
-      console.log(`🔵 [fetchCastsWithPagination] Farcaster Kit fetch completed in ${fetchTime}ms, status: ${response.status}`);
+      console.log(`🔵 [fetchCastsWithPagination] ✅ Farcaster Kit fetch completed in ${fetchTime}ms, status: ${response.status}`);
     } catch (fetchError) {
       clearTimeout(timeoutId);
       const fetchTime = Date.now() - fetchStart;
-      console.error(`🔵 [fetchCastsWithPagination] ❌ Farcaster Kit fetch failed after ${fetchTime}ms:`, {
+      const errorDetails = {
         error: fetchError instanceof Error ? fetchError.message : String(fetchError),
         name: fetchError instanceof Error ? fetchError.name : 'Unknown',
         cause: fetchError instanceof Error ? (fetchError as Error & { cause?: unknown }).cause : undefined,
         stack: fetchError instanceof Error ? fetchError.stack : undefined,
-      });
-      throw fetchError;
+        toString: String(fetchError),
+      };
+      console.error(`🔵 [fetchCastsWithPagination] ❌ Farcaster Kit fetch failed after ${fetchTime}ms:`, errorDetails);
+      
+      // Re-throw with more context
+      const enhancedError = new Error(`Fetch failed: ${errorDetails.error} (${errorDetails.name})`);
+      (enhancedError as Error & { originalError?: unknown }).originalError = fetchError;
+      throw enhancedError;
     }
     
     if (!response.ok) {
