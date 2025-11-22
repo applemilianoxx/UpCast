@@ -30,12 +30,26 @@ async function fetchCastsWithPagination(
     url.searchParams.set("cursor", cursor.toString());
   }
 
-  const response = await fetch(url.toString());
+  const response = await fetch(url.toString(), {
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+  
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`API error: ${response.status} ${response.statusText}`, errorText);
     throw new Error(`Failed to fetch casts: ${response.statusText}`);
   }
 
   const data = await response.json();
+  console.log("Farcaster Kit API response:", { 
+    isArray: Array.isArray(data), 
+    hasCasts: !!data.casts, 
+    keys: Object.keys(data),
+    firstItem: Array.isArray(data) ? data[0] : data.casts?.[0]
+  });
+  
   // Handle different response formats
   const casts = Array.isArray(data) ? data : (data.casts || data.data || []);
   const nextCursor = data.nextCursor || data.cursor || data.next?.cursor;
