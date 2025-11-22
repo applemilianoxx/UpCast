@@ -22,6 +22,12 @@ interface UserCast {
 
 export default function ProfileTab() {
   const { context } = useMiniKit();
+  
+  // Debug: Log context to see what's available
+  if (typeof window !== 'undefined' && context?.user) {
+    console.log('MiniKit user context:', context.user);
+  }
+  
   // MiniKit user context is not fully typed, so we cast to a loose type for now
   const user = context?.user as {
     displayName?: string;
@@ -33,8 +39,16 @@ export default function ProfileTab() {
   } | undefined;
   
   // Try multiple possible profile picture properties
-  const profileImageUrl = user?.pfp?.url || user?.avatar || user?.profileImage || 
-    (context?.user as any)?.pfpUrl || (context?.user as any)?.avatarUrl;
+  const userAny = context?.user as any;
+  const profileImageUrl = 
+    user?.pfp?.url || 
+    user?.avatar || 
+    user?.profileImage || 
+    userAny?.pfpUrl || 
+    userAny?.avatarUrl ||
+    userAny?.pfp?.url ||
+    userAny?.profile?.image ||
+    userAny?.profileImage;
   const [stats] = useState<UserStats>({
     totalCasts: 42,
     topRankedCasts: 8,
