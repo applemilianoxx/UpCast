@@ -28,6 +28,7 @@ async function fetchCastsWithPagination(
 ): Promise<{ casts: unknown[]; nextCursor?: string }> {
   // Try Neynar API first, fallback to Farcaster Kit
   const useNeynar = !!NEYNAR_API_KEY;
+  console.log(`🔵 [fetchCastsWithPagination] useNeynar: ${useNeynar}, hasKey: ${!!NEYNAR_API_KEY}`);
   
   if (useNeynar) {
     try {
@@ -39,34 +40,53 @@ async function fetchCastsWithPagination(
         url.searchParams.set("cursor", cursor);
       }
 
-      console.log(`Fetching from Neynar: ${url.toString()}`);
+      console.log(`🔵 [fetchCastsWithPagination] Attempting Neynar fetch: ${url.toString()}`);
+      const fetchStart = Date.now();
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const timeoutId = setTimeout(() => {
+        console.log(`🔵 [fetchCastsWithPagination] ⏱️ Neynar request timeout after 15s`);
+        controller.abort();
+      }, 15000);
       
-      const response = await fetch(url.toString(), {
-        headers: {
-          'Accept': 'application/json',
-          'api_key': NEYNAR_API_KEY,
-        },
-        signal: controller.signal,
-        cache: 'no-store',
-      });
-      
-      clearTimeout(timeoutId);
+      let response;
+      try {
+        response = await fetch(url.toString(), {
+          headers: {
+            'Accept': 'application/json',
+            'api_key': NEYNAR_API_KEY,
+          },
+          signal: controller.signal,
+          cache: 'no-store',
+        });
+        clearTimeout(timeoutId);
+        const fetchTime = Date.now() - fetchStart;
+        console.log(`🔵 [fetchCastsWithPagination] Neynar fetch completed in ${fetchTime}ms, status: ${response.status}`);
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        const fetchTime = Date.now() - fetchStart;
+        console.error(`🔵 [fetchCastsWithPagination] ❌ Neynar fetch failed after ${fetchTime}ms:`, fetchError);
+        throw fetchError;
+      }
       
       if (!response.ok) {
-        throw new Error(`Neynar API error: ${response.status}`);
+        const errorText = await response.text().catch(() => 'Could not read error text');
+        console.error(`🔵 [fetchCastsWithPagination] ❌ Neynar API error ${response.status}:`, errorText);
+        throw new Error(`Neynar API error: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
       const casts = data.result?.casts || data.casts || [];
       const nextCursor = data.result?.next?.cursor || data.next?.cursor;
       
-      console.log("Neynar API response:", { castsCount: casts.length, nextCursor });
+      console.log(`🔵 [fetchCastsWithPagination] ✅ Neynar success:`, { castsCount: casts.length, nextCursor });
       
       return { casts, nextCursor };
     } catch (error) {
-      console.error("Neynar API failed, trying Farcaster Kit:", error);
+      console.error(`🔵 [fetchCastsWithPagination] ❌ Neynar API failed, trying Farcaster Kit:`, {
+        error: error instanceof Error ? error.message : String(error),
+        name: error instanceof Error ? error.name : 'Unknown',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
     }
   }
   
@@ -78,24 +98,42 @@ async function fetchCastsWithPagination(
   }
 
   try {
-    console.log(`Fetching from Farcaster Kit: ${url.toString()}`);
+    console.log(`🔵 [fetchCastsWithPagination] Attempting Farcaster Kit fetch: ${url.toString()}`);
+    const fetchStart = Date.now();
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => {
+      console.log(`🔵 [fetchCastsWithPagination] ⏱️ Farcaster Kit request timeout after 15s`);
+      controller.abort();
+    }, 15000);
     
-    const response = await fetch(url.toString(), {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'UPLYST/1.0',
-      },
-      signal: controller.signal,
-      cache: 'no-store',
-    });
-    
-    clearTimeout(timeoutId);
+    let response;
+    try {
+      response = await fetch(url.toString(), {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'UPLYST/1.0',
+        },
+        signal: controller.signal,
+        cache: 'no-store',
+      });
+      clearTimeout(timeoutId);
+      const fetchTime = Date.now() - fetchStart;
+      console.log(`🔵 [fetchCastsWithPagination] Farcaster Kit fetch completed in ${fetchTime}ms, status: ${response.status}`);
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      const fetchTime = Date.now() - fetchStart;
+      console.error(`🔵 [fetchCastsWithPagination] ❌ Farcaster Kit fetch failed after ${fetchTime}ms:`, {
+        error: fetchError instanceof Error ? fetchError.message : String(fetchError),
+        name: fetchError instanceof Error ? fetchError.name : 'Unknown',
+        cause: fetchError instanceof Error ? (fetchError as Error & { cause?: unknown }).cause : undefined,
+        stack: fetchError instanceof Error ? fetchError.stack : undefined,
+      });
+      throw fetchError;
+    }
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`API error: ${response.status} ${response.statusText}`, errorText);
+      const errorText = await response.text().catch(() => 'Could not read error text');
+      console.error(`🔵 [fetchCastsWithPagination] ❌ Farcaster Kit API error ${response.status}:`, errorText);
       throw new Error(`Failed to fetch casts: ${response.status} ${response.statusText}`);
     }
     
@@ -103,16 +141,23 @@ async function fetchCastsWithPagination(
     const casts = Array.isArray(data) ? data : (data.casts || data.data || []);
     const nextCursor = data.nextCursor || data.cursor || data.next?.cursor;
     
-    console.log("Farcaster Kit API response:", { castsCount: casts.length, nextCursor });
+    console.log(`🔵 [fetchCastsWithPagination] ✅ Farcaster Kit success:`, { castsCount: casts.length, nextCursor });
     
     return { casts, nextCursor };
   } catch (error) {
+    console.error(`🔵 [fetchCastsWithPagination] ❌ Farcaster Kit failed:`, {
+      error: error instanceof Error ? error.message : String(error),
+      name: error instanceof Error ? error.name : 'Unknown',
+      cause: error instanceof Error ? (error as Error & { cause?: unknown }).cause : undefined,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
         throw new Error('Request timeout');
       }
-      if (error.message.includes('fetch failed')) {
-        throw new Error(`Network error: ${error.message}`);
+      if (error.message.includes('fetch failed') || error.name === 'TypeError') {
+        throw new Error(`Network error: ${error.message} (${error.name})`);
       }
     }
     throw error;
