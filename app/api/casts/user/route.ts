@@ -33,29 +33,50 @@ async function fetchUserCastsWithPagination(
     url.searchParams.set("cursor", cursor.toString());
   }
 
-  const response = await fetch(url.toString(), {
-    headers: {
-      'Accept': 'application/json',
-    },
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`API error for FID ${fid}: ${response.status} ${response.statusText}`, errorText);
-    throw new Error(`Failed to fetch user casts: ${response.statusText}`);
-  }
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'UPLYST/1.0',
+      },
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`API error for FID ${fid}: ${response.status} ${response.statusText}`, errorText);
+      throw new Error(`Failed to fetch user casts: ${response.statusText}`);
+    }
 
-  const data = await response.json();
-  console.log(`Farcaster Kit API response for FID ${fid}:`, { 
-    isArray: Array.isArray(data), 
-    hasCasts: !!data.casts, 
-    keys: Object.keys(data),
-    firstItem: Array.isArray(data) ? data[0] : data.casts?.[0]
-  });
-  
-  // Handle different response formats
-  const casts = Array.isArray(data) ? data : (data.casts || data.data || []);
-  const nextCursor = data.nextCursor || data.cursor || data.next?.cursor;
+    const data = await response.json();
+    console.log(`Farcaster Kit API response for FID ${fid}:`, { 
+      isArray: Array.isArray(data), 
+      hasCasts: !!data.casts, 
+      keys: Object.keys(data),
+      firstItem: Array.isArray(data) ? data[0] : data.casts?.[0]
+    });
+    
+    // Handle different response formats
+    const casts = Array.isArray(data) ? data : (data.casts || data.data || []);
+    const nextCursor = data.nextCursor || data.cursor || data.next?.cursor;
+    
+    return {
+      casts,
+      nextCursor,
+    };
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('Request timeout');
+      throw new Error('Request timeout');
+    }
+    console.error('Fetch error:', error);
+    throw error;
+  }
   
   return {
     casts,
