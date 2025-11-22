@@ -55,7 +55,14 @@ export default function HomeTab() {
   // Rank casts by score
   const rankedCasts = useMemo(() => {
     // Handle different response formats from Farcaster Kit
-    const casts = castsData?.casts || castsData?.data || castsData || [];
+    // castsData could be an array directly or an object with casts/data property
+    let casts: unknown[] = [];
+    if (Array.isArray(castsData)) {
+      casts = castsData;
+    } else if (castsData && typeof castsData === 'object') {
+      const data = castsData as { casts?: unknown[]; data?: unknown[] };
+      casts = data.casts || data.data || [];
+    }
     if (!Array.isArray(casts) || casts.length === 0) return [];
     
     const castsWithScores = casts.map((cast: Record<string, unknown>) => {
