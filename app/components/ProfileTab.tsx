@@ -28,7 +28,13 @@ export default function ProfileTab() {
     username?: string;
     fid?: number;
     pfp?: { url?: string };
+    avatar?: string;
+    profileImage?: string;
   } | undefined;
+  
+  // Try multiple possible profile picture properties
+  const profileImageUrl = user?.pfp?.url || user?.avatar || user?.profileImage || 
+    (context?.user as any)?.pfpUrl || (context?.user as any)?.avatarUrl;
   const [stats] = useState<UserStats>({
     totalCasts: 42,
     topRankedCasts: 8,
@@ -60,17 +66,25 @@ export default function ProfileTab() {
     <div className={styles.container}>
       <div className={styles.header}>
         <div className={styles.avatarSection}>
-          {user?.pfp?.url ? (
+          {profileImageUrl ? (
             <img
-              src={user.pfp.url}
-              alt={user.displayName || "User"}
+              src={profileImageUrl}
+              alt={user?.displayName || "User"}
               className={styles.avatar}
+              onError={(e) => {
+                // Fallback to placeholder if image fails to load
+                e.currentTarget.style.display = 'none';
+                const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
+                if (placeholder) placeholder.style.display = 'flex';
+              }}
             />
-          ) : (
-            <div className={styles.avatarPlaceholder}>
-              {user?.displayName?.[0] || "U"}
-            </div>
-          )}
+          ) : null}
+          <div 
+            className={styles.avatarPlaceholder}
+            style={{ display: profileImageUrl ? 'none' : 'flex' }}
+          >
+            {user?.displayName?.[0] || user?.username?.[0]?.toUpperCase() || "U"}
+          </div>
           <div className={styles.userInfo}>
             <h1 className={styles.userName}>
               {user?.displayName || "User"}
