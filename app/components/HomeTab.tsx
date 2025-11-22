@@ -132,13 +132,6 @@ export default function HomeTab() {
     return castsWithScores.sort((a, b) => b.score - a.score).slice(0, 20);
   }, [castsData]);
 
-  const formatTime = (timestamp: number) => {
-    const hours = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60));
-    if (hours < 1) return "Just now";
-    if (hours < 24) return `${hours}h ago`;
-    return `${Math.floor(hours / 24)}d ago`;
-  };
-
   if (loading) {
     return (
       <div className={styles.container}>
