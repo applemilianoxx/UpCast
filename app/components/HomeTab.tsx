@@ -56,16 +56,24 @@ export default function HomeTab() {
   const rankedCasts = useMemo(() => {
     // Handle different response formats from Farcaster Kit
     // castsData could be an array directly or an object with casts/data property
-    let casts: unknown[] = [];
     if (!castsData) {
       return [];
     }
+    
+    // Type guard: check if it's already an array
+    let casts: unknown[] = [];
     if (Array.isArray(castsData)) {
       casts = castsData;
-    } else if (typeof castsData === 'object' && castsData !== null) {
-      const data = castsData as { casts?: unknown[]; data?: unknown[] };
-      casts = data.casts || data.data || [];
+    } else {
+      // If it's an object, try to extract casts/data
+      const dataObj = castsData as Record<string, unknown>;
+      if (Array.isArray(dataObj.casts)) {
+        casts = dataObj.casts;
+      } else if (Array.isArray(dataObj.data)) {
+        casts = dataObj.data;
+      }
     }
+    
     if (!Array.isArray(casts) || casts.length === 0) return [];
     
     const castsWithScores = casts.map((cast: Record<string, unknown>) => {
