@@ -54,27 +54,12 @@ export default function HomeTab() {
 
   // Rank casts by score
   const rankedCasts = useMemo(() => {
-    // Handle different response formats from Farcaster Kit
-    // castsData could be an array directly or an object with casts/data property
-    if (!castsData) {
+    // useLatestCasts returns data as an array directly
+    if (!castsData || !Array.isArray(castsData) || castsData.length === 0) {
       return [];
     }
     
-    // Type guard: check if it's already an array
-    let casts: unknown[] = [];
-    if (Array.isArray(castsData)) {
-      casts = castsData;
-    } else {
-      // If it's an object, try to extract casts/data
-      const dataObj = castsData as Record<string, unknown>;
-      if (Array.isArray(dataObj.casts)) {
-        casts = dataObj.casts;
-      } else if (Array.isArray(dataObj.data)) {
-        casts = dataObj.data;
-      }
-    }
-    
-    if (!Array.isArray(casts) || casts.length === 0) return [];
+    const casts = castsData;
     
     const castsWithScores = casts.map((cast: Record<string, unknown>) => {
       const author = cast.author as { fid?: number; username?: string; displayName?: string; pfp?: { url?: string } } | undefined;
