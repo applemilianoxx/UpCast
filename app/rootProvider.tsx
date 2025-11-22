@@ -6,6 +6,9 @@ import { FarcasterKitProvider } from "farcasterkit";
 import "@coinbase/onchainkit/styles.css";
 
 export function RootProvider({ children }: { children: ReactNode }) {
+  // Type assertion to handle React 18/19 type mismatch between farcasterkit and project
+  const farcasterChildren = children as any;
+  
   return (
     <OnchainKitProvider
       apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
@@ -26,7 +29,7 @@ export function RootProvider({ children }: { children: ReactNode }) {
       }}
     >
       <FarcasterKitProvider>
-        {children as unknown as React.ReactNode}
+        {farcasterChildren}
       </FarcasterKitProvider>
     </OnchainKitProvider>
   );
