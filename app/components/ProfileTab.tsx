@@ -39,16 +39,16 @@ export default function ProfileTab() {
   } | undefined;
   
   // Try multiple possible profile picture properties
-  const userAny = context?.user as any;
+  const userAny = context?.user as Record<string, unknown> | undefined;
   const profileImageUrl = 
     user?.pfp?.url || 
     user?.avatar || 
     user?.profileImage || 
-    userAny?.pfpUrl || 
-    userAny?.avatarUrl ||
-    userAny?.pfp?.url ||
-    userAny?.profile?.image ||
-    userAny?.profileImage;
+    (userAny?.pfpUrl as string | undefined) || 
+    (userAny?.avatarUrl as string | undefined) ||
+    ((userAny?.pfp as Record<string, unknown> | undefined)?.url as string | undefined) ||
+    ((userAny?.profile as Record<string, unknown> | undefined)?.image as string | undefined) ||
+    (userAny?.profileImage as string | undefined);
   const [stats] = useState<UserStats>({
     totalCasts: 42,
     topRankedCasts: 8,
