@@ -61,11 +61,19 @@ async function fetchCastsWithPagination(
         clearTimeout(timeoutId);
         const fetchTime = Date.now() - fetchStart;
         console.log(`🔵 [fetchCastsWithPagination] Neynar fetch completed in ${fetchTime}ms, status: ${response.status}`);
-      } catch (fetchError) {
+      } catch (fetchError: any) {
         clearTimeout(timeoutId);
         const fetchTime = Date.now() - fetchStart;
-        console.error(`🔵 [fetchCastsWithPagination] ❌ Neynar fetch failed after ${fetchTime}ms:`, fetchError);
-        throw fetchError;
+        const errorDetails = {
+          message: fetchError?.message || String(fetchError),
+          name: fetchError?.name || 'UnknownError',
+          stack: fetchError?.stack,
+          cause: fetchError?.cause,
+          type: typeof fetchError,
+          toString: String(fetchError),
+        };
+        console.error(`🔵 [fetchCastsWithPagination] ❌ Neynar fetch failed after ${fetchTime}ms:`, errorDetails);
+        throw new Error(`Neynar fetch failed: ${errorDetails.message} (${errorDetails.name})`, { cause: fetchError });
       }
       
       if (!response.ok) {
@@ -121,17 +129,20 @@ async function fetchCastsWithPagination(
       clearTimeout(timeoutId);
       const fetchTime = Date.now() - fetchStart;
       console.log(`🔵 [fetchCastsWithPagination] ✅ Farcaster Kit fetch completed in ${fetchTime}ms, status: ${response.status}`);
-    } catch (fetchError) {
+    } catch (fetchError: any) {
       clearTimeout(timeoutId);
       const fetchTime = Date.now() - fetchStart;
       const errorDetails = {
-        error: fetchError instanceof Error ? fetchError.message : String(fetchError),
-        name: fetchError instanceof Error ? fetchError.name : 'Unknown',
-        cause: fetchError instanceof Error ? (fetchError as Error & { cause?: unknown }).cause : undefined,
-        stack: fetchError instanceof Error ? fetchError.stack : undefined,
+        error: fetchError?.message || String(fetchError),
+        name: fetchError?.name || 'Unknown',
+        cause: fetchError?.cause,
+        stack: fetchError?.stack,
         toString: String(fetchError),
+        type: typeof fetchError,
+        constructor: fetchError?.constructor?.name,
       };
       console.error(`🔵 [fetchCastsWithPagination] ❌ Farcaster Kit fetch failed after ${fetchTime}ms:`, errorDetails);
+      console.error(`🔵 [fetchCastsWithPagination] ❌ Full error object:`, JSON.stringify(errorDetails, null, 2));
       
       // Re-throw with more context
       const enhancedError = new Error(`Fetch failed: ${errorDetails.error} (${errorDetails.name})`);
