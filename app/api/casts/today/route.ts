@@ -23,7 +23,7 @@ interface Cast {
 async function fetchCastsWithPagination(
   cursor?: number,
   limit: number = 100
-): Promise<{ casts: Cast[]; nextCursor?: number }> {
+): Promise<{ casts: unknown[]; nextCursor?: number }> {
   const url = new URL(`${FARCASTER_KIT_API}/casts/latest`);
   url.searchParams.set("limit", limit.toString());
   if (cursor) {
@@ -66,7 +66,7 @@ export async function GET() {
 
       // Process and filter casts
       for (const cast of casts) {
-        const castRecord = cast as Record<string, unknown>;
+        const castRecord = cast as unknown as Record<string, unknown>;
         const timestamp = (castRecord.timestamp as number | undefined) || 
                          (castRecord.publishedAt as number | undefined) || 
                          Date.now();

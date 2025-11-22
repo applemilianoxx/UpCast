@@ -25,7 +25,7 @@ async function fetchUserCastsWithPagination(
   fid: number,
   cursor?: number,
   limit: number = 100
-): Promise<{ casts: Cast[]; nextCursor?: number }> {
+): Promise<{ casts: unknown[]; nextCursor?: number }> {
   const url = new URL(`${FARCASTER_KIT_API}/casts/latest`);
   url.searchParams.set("fid", fid.toString());
   url.searchParams.set("limit", limit.toString());
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
 
       // Process casts
       for (const cast of casts) {
-        const castRecord = cast as Record<string, unknown>;
+        const castRecord = cast as unknown as Record<string, unknown>;
         const author = castRecord.author as { 
           fid?: number; 
           username?: string; 
