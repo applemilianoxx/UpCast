@@ -2,6 +2,7 @@
 import { ReactNode } from "react";
 import { base } from "wagmi/chains";
 import { OnchainKitProvider } from "@coinbase/onchainkit";
+import { FarcasterKitProvider } from "farcasterkit";
 import "@coinbase/onchainkit/styles.css";
 
 export function RootProvider({ children }: { children: ReactNode }) {
@@ -24,7 +25,9 @@ export function RootProvider({ children }: { children: ReactNode }) {
         notificationProxyUrl: undefined,
       }}
     >
-      {children}
+      <FarcasterKitProvider>
+        {children}
+      </FarcasterKitProvider>
     </OnchainKitProvider>
   );
 }
