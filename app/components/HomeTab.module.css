@@ -11,26 +11,26 @@
   gap: 0;
 }
 
-.tabButton {
-  padding: 1rem 1.5rem;
+.topTab {
+  flex: 1;
+  padding: 1rem;
   background: none;
   border: none;
   color: rgba(255, 255, 255, 0.6);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: all 0.2s;
-  position: relative;
 }
 
-.tabButton:hover {
+.topTab:hover {
   color: rgba(255, 255, 255, 0.8);
 }
 
-.tabButton.active {
+.topTab.active {
   color: #ffffff;
-  border-bottom-color: #ffffff;
+  border-bottom-color: #667eea;
 }
 
 .loading {
@@ -49,12 +49,19 @@
   font-weight: 600;
   margin-bottom: 1rem;
   color: var(--foreground);
+  padding: 0 1rem;
+}
+
+.topCastsSection {
+  padding: 1rem;
+  margin-top: 0;
 }
 
 .spotlightGrid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 1rem;
+  padding: 0 1rem;
 }
 
 .spotlightCard {
@@ -69,6 +76,8 @@
   font-weight: 600;
   color: rgba(255, 255, 255, 0.7);
   margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .spotlightContent {
@@ -79,21 +88,20 @@
 
 .spotlightAuthor {
   display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 0.5rem;
 }
 
 .spotlightAvatar {
-  width: 50px;
-  height: 50px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   object-fit: cover;
 }
 
 .spotlightAvatarPlaceholder {
-  width: 50px;
-  height: 50px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
@@ -101,32 +109,29 @@
   justify-content: center;
   color: white;
   font-weight: 600;
-  font-size: 1.2rem;
+  font-size: 0.75rem;
 }
 
 .spotlightAuthorName {
-  font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 0.9rem;
   color: var(--foreground);
 }
 
 .spotlightText {
   font-size: 0.9rem;
-  line-height: 1.4;
+  line-height: 1.5;
   color: var(--foreground);
-  text-align: center;
 }
 
 .spotlightWon {
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.6);
-  text-align: center;
   margin-top: 0.5rem;
 }
 
 .topCastsSection {
-  padding: 1rem;
-  margin-top: 0;
+  margin-top: 2rem;
 }
 
 .castsList {
@@ -150,19 +155,20 @@
 }
 
 .rankBadge {
-  position: absolute;
-  top: 0.75rem;
-  left: 1rem;
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.rankNumber {
+  font-size: 1rem;
+  font-weight: 700;
   color: var(--foreground);
-  font-size: 0.9rem;
-  font-weight: 600;
 }
 
 .flameIcon {
-  color: #ff6b6b;
+  font-size: 0.9rem;
 }
 
 .castContent {
@@ -170,6 +176,9 @@
 }
 
 .castHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 0.75rem;
 }
 
@@ -177,7 +186,6 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin-left: 3rem;
 }
 
 .avatar {
@@ -188,8 +196,8 @@
 }
 
 .authorName {
-  font-weight: 500;
-  font-size: 0.85rem;
+  font-weight: 600;
+  font-size: 0.9rem;
   color: var(--foreground);
 }
 
@@ -213,14 +221,45 @@
 
 .castText {
   margin-bottom: 0.75rem;
-  margin-left: 3rem;
   line-height: 1.5;
   color: var(--foreground);
 }
 
+.embed {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.embed a {
+  color: #667eea;
+  word-break: break-all;
+}
+
+.castStats {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.statItem {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.statIcon {
+  font-size: 0.9rem;
+}
+
 .embedImage {
   margin: 0.75rem 0;
-  margin-left: 3rem;
   border-radius: 8px;
   overflow: hidden;
 }
@@ -230,24 +269,6 @@
   max-width: 200px;
   height: auto;
   border-radius: 8px;
-  object-fit: cover;
-}
-
-.castStats {
-  display: flex;
-  gap: 1rem;
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.7);
-  margin-top: 0.75rem;
-  margin-left: 3rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.statItem {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
 }
 
 @media (prefers-color-scheme: light) {

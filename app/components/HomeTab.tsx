@@ -1,7 +1,6 @@
 "use client";
 import { useLatestCasts } from "farcasterkit";
 import { useState, useMemo } from "react";
-import { Flame, Square, MessageCircle } from "lucide-react";
 import styles from "./HomeTab.module.css";
 
 interface Cast {
@@ -38,9 +37,9 @@ export default function HomeTab() {
     // Mock data for now
     {
       id: "1",
-      castHash: "0x1",
+      castHash: "0x123",
       cast: {
-        hash: "0x1",
+        hash: "0x123",
         text: "Check out my new project! More details below",
         author: {
           fid: 1,
@@ -53,14 +52,14 @@ export default function HomeTab() {
         embeds: [],
       },
       bidder: "carol",
-      bidAmount: 0.05,
-      expiresAt: Date.now() + 3600000,
+      bidAmount: 50,
+      expiresAt: Date.now() + 86400000,
     },
     {
       id: "2",
-      castHash: "0x2",
+      castHash: "0x456",
       cast: {
-        hash: "0x2",
+        hash: "0x456",
         text: "#web3 is the future 🌐",
         author: {
           fid: 2,
@@ -73,8 +72,8 @@ export default function HomeTab() {
         embeds: [],
       },
       bidder: "dave",
-      bidAmount: 0.065,
-      expiresAt: Date.now() + 3600000,
+      bidAmount: 65,
+      expiresAt: Date.now() + 86400000,
     },
   ]); // TODO: Fetch from API
 
@@ -153,77 +152,74 @@ export default function HomeTab() {
       {/* Top Tabs */}
       <div className={styles.topTabs}>
         <button
-          className={`${styles.tabButton} ${activeView === "frontpage" ? styles.active : ""}`}
+          className={`${styles.topTab} ${activeView === "frontpage" ? styles.active : ""}`}
           onClick={() => setActiveView("frontpage")}
         >
           Front Page
         </button>
         <button
-          className={`${styles.tabButton} ${activeView === "spotlight" ? styles.active : ""}`}
+          className={`${styles.topTab} ${activeView === "spotlight" ? styles.active : ""}`}
           onClick={() => setActiveView("spotlight")}
         >
           Spotlight
         </button>
       </div>
 
-      {activeView === "frontpage" && (
-        <>
-          {/* Top Casts Section */}
-          <section className={styles.topCastsSection}>
-            <h2 className={styles.sectionTitle}>Top Casts Today</h2>
-            <div className={styles.castsList}>
-              {rankedCasts.map((cast, index) => (
-                <div key={cast.hash} className={styles.castCard}>
-                  <div className={styles.rankBadge}>
-                    {index + 1}
-                    <Flame className={styles.flameIcon} size={12} />
+      {activeView === "frontpage" ? (
+        /* Top Casts Section */
+        <section className={styles.topCastsSection}>
+          <h2 className={styles.sectionTitle}>Top Casts Today</h2>
+          <div className={styles.castsList}>
+            {rankedCasts.map((cast, index) => (
+              <div key={cast.hash} className={styles.castCard}>
+                <div className={styles.rankBadge}>
+                  <span className={styles.rankNumber}>{index + 1}</span>
+                  <span className={styles.flameIcon}>🔥</span>
+                </div>
+                <div className={styles.castContent}>
+                  <div className={styles.castHeader}>
+                    <div className={styles.authorInfo}>
+                      {cast.author.pfp?.url ? (
+                        <img
+                          src={cast.author.pfp.url}
+                          alt={cast.author.username}
+                          className={styles.avatar}
+                        />
+                      ) : (
+                        <div className={styles.avatarPlaceholder}>
+                          {cast.author.username[0]?.toUpperCase() || "?"}
+                        </div>
+                      )}
+                      <div className={styles.authorName}>{cast.author.username}</div>
+                    </div>
                   </div>
-                  <div className={styles.castContent}>
-                    <div className={styles.castHeader}>
-                      <div className={styles.authorInfo}>
-                        {cast.author.pfp?.url ? (
-                          <img
-                            src={cast.author.pfp.url}
-                            alt={cast.author.displayName}
-                            className={styles.avatar}
-                          />
-                        ) : (
-                          <div className={styles.avatarPlaceholder}>
-                            {cast.author.displayName[0]?.toUpperCase() || "?"}
-                          </div>
-                        )}
-                        <div className={styles.authorName}>{cast.author.username}</div>
-                      </div>
+                  <p className={styles.castText}>{cast.text}</p>
+                  {cast.embeds?.[0]?.url && (
+                    <div className={styles.embedImage}>
+                      <img src={cast.embeds[0].url} alt="Embed" className={styles.embedImg} />
                     </div>
-                    <p className={styles.castText}>{cast.text}</p>
-                    {cast.embeds?.[0]?.url && (
-                      <div className={styles.embedImage}>
-                        <img src={cast.embeds[0].url} alt="Embed" className={styles.embedImg} />
-                      </div>
-                    )}
-                    <div className={styles.castStats}>
-                      <span className={styles.statItem}>
-                        <Flame size={14} />
-                        {cast.reactions?.likes || 0}
-                      </span>
-                      <span className={styles.statItem}>
-                        <Square size={14} />
-                        {cast.reactions?.recasts || 0}
-                      </span>
-                      <span className={styles.statItem}>
-                        <MessageCircle size={14} />
-                        {cast.reactions?.replies || 0}
-                      </span>
-                    </div>
+                  )}
+                  <div className={styles.castStats}>
+                    <span className={styles.statItem}>
+                      <span className={styles.statIcon}>🔥</span>
+                      {cast.reactions?.likes || 0}
+                    </span>
+                    <span className={styles.statItem}>
+                      <span className={styles.statIcon}>⬜</span>
+                      {cast.reactions?.recasts || 0}
+                    </span>
+                    <span className={styles.statItem}>
+                      <span className={styles.statIcon}>💬</span>
+                      {cast.reactions?.replies || 0}
+                    </span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </section>
-        </>
-      )}
-
-      {activeView === "spotlight" && (
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : (
+        /* Spotlight Section */
         <section className={styles.spotlightSection}>
           <h2 className={styles.sectionTitle}>Spotlight Auctions</h2>
           <div className={styles.spotlightGrid}>
@@ -235,18 +231,18 @@ export default function HomeTab() {
                     {spotlight.cast.author.pfp?.url ? (
                       <img
                         src={spotlight.cast.author.pfp.url}
-                        alt={spotlight.cast.author.displayName}
+                        alt={spotlight.cast.author.username}
                         className={styles.spotlightAvatar}
                       />
                     ) : (
                       <div className={styles.spotlightAvatarPlaceholder}>
-                        {spotlight.cast.author.displayName[0]?.toUpperCase() || "?"}
+                        {spotlight.cast.author.username[0]?.toUpperCase() || "?"}
                       </div>
                     )}
                     <div className={styles.spotlightAuthorName}>{spotlight.cast.author.username}</div>
                   </div>
                   <p className={styles.spotlightText}>{spotlight.cast.text}</p>
-                  <div className={styles.spotlightWon}>Won at ${(spotlight.bidAmount * 1000).toFixed(0)}</div>
+                  <div className={styles.spotlightWon}>Won at ${spotlight.bidAmount}</div>
                 </div>
               </div>
             ))}
