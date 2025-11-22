@@ -353,20 +353,45 @@ export async function GET() {
     console.error(`🔵 [API /casts/today] ❌ Error after ${totalTime}ms:`, error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     const errorStack = error instanceof Error ? error.stack : undefined;
+    const errorName = error instanceof Error ? error.name : typeof error;
+    
     console.error("🔵 [API /casts/today] ❌ Error details:", { 
       errorMessage, 
       errorStack, 
       error,
-      errorType: error instanceof Error ? error.name : typeof error,
+      errorType: errorName,
+      errorCause: error instanceof Error ? (error as Error & { cause?: unknown }).cause : undefined,
     });
+    
+    // If we have some casts collected before the error, return them
+    if (allCasts.length > 0) {
+      console.log(`🔵 [API /casts/today] ⚠️ Returning ${allCasts.length} casts collected before error`);
+      const sortedCasts = allCasts.sort((a, b) => {
+        const aEngagement = (a.reactions?.likes || 0) + 
+                           (a.reactions?.recasts || 0) + 
+                           (a.reactions?.replies || 0);
+        const bEngagement = (b.reactions?.likes || 0) + 
+                           (b.reactions?.recasts || 0) + 
+                           (b.reactions?.replies || 0);
+        return bEngagement - aEngagement;
+      });
+      
+      return NextResponse.json({
+        casts: sortedCasts.slice(0, 20),
+        total: allCasts.length,
+        partial: true,
+        error: errorMessage,
+      });
+    }
     
     // Return a more detailed error response
     return NextResponse.json(
       { 
         error: "Failed to fetch today's casts", 
         details: errorMessage,
-        type: error instanceof Error ? error.name : typeof error,
+        type: errorName,
         timestamp: new Date().toISOString(),
+        casts: [], // Return empty array so UI doesn't break
       },
       { status: 500 }
     );
