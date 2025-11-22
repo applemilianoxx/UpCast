@@ -212,13 +212,18 @@ export default function ProfileTab() {
       {/* Your Top Casts - Right below profile */}
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Your Top Casts</h2>
-        {castsLoading ? (
+        {castsLoading || fallbackLoading ? (
           <div className={styles.emptyState}>
             <p>Loading your casts...</p>
           </div>
         ) : userCasts.length === 0 ? (
           <div className={styles.emptyState}>
-            <p>No casts yet. Start casting to see them here!</p>
+            <p>No casts found. Make sure you have casts on Farcaster!</p>
+            {user?.fid && (
+              <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '8px' }}>
+                FID: {user.fid}
+              </p>
+            )}
           </div>
         ) : (
           <div className={styles.castsList}>
