@@ -34,8 +34,9 @@ async function fetchUserCastsWithPagination(
   }
 
   try {
+    console.log(`Fetching user casts from: ${url.toString()}`);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
     
     const response = await fetch(url.toString(), {
       headers: {
@@ -43,6 +44,7 @@ async function fetchUserCastsWithPagination(
         'User-Agent': 'UPLYST/1.0',
       },
       signal: controller.signal,
+      cache: 'no-store',
     });
     
     clearTimeout(timeoutId);
@@ -50,7 +52,7 @@ async function fetchUserCastsWithPagination(
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`API error for FID ${fid}: ${response.status} ${response.statusText}`, errorText);
-      throw new Error(`Failed to fetch user casts: ${response.statusText}`);
+      throw new Error(`Failed to fetch user casts: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -70,9 +72,15 @@ async function fetchUserCastsWithPagination(
       nextCursor,
     };
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.error('Request timeout');
-      throw new Error('Request timeout');
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        console.error('Request timeout after 15 seconds');
+        throw new Error('Request timeout');
+      }
+      if (error.message.includes('fetch failed')) {
+        console.error('Network error - fetch failed:', error.message);
+        throw new Error(`Network error: ${error.message}`);
+      }
     }
     console.error('Fetch error:', error);
     throw error;

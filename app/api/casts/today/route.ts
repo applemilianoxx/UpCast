@@ -193,8 +193,16 @@ export async function GET() {
   } catch (error) {
     console.error("Error fetching today's casts:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error("Error details:", { errorMessage, errorStack, error });
+    
+    // Return a more detailed error response
     return NextResponse.json(
-      { error: "Failed to fetch today's casts", details: errorMessage },
+      { 
+        error: "Failed to fetch today's casts", 
+        details: errorMessage,
+        type: error instanceof Error ? error.name : typeof error,
+      },
       { status: 500 }
     );
   }
