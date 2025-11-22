@@ -168,7 +168,7 @@
 }
 
 .flameIcon {
-  font-size: 0.9rem;
+  color: #ff6b35;
 }
 
 .castContent {
@@ -255,7 +255,8 @@
 }
 
 .statIcon {
-  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  flex-shrink: 0;
 }
 
 .embedImage {
