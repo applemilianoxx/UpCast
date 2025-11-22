@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Flame, Square, MessageSquare } from "lucide-react";
-import { useLatestCasts } from "farcasterkit";
 import styles from "./HomeTab.module.css";
 
 interface Cast {
@@ -34,9 +33,6 @@ interface Spotlight {
 export default function HomeTab() {
   const [rankedCasts, setRankedCasts] = useState<Cast[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Fallback: Use farcasterkit hook directly
-  const { data: fallbackCastsData, loading: fallbackLoading } = useLatestCasts({ limit: 200 });
   
   const [spotlights] = useState<Spotlight[]>([
     // Mock data for now
@@ -82,7 +78,7 @@ export default function HomeTab() {
     },
   ]); // TODO: Fetch from API
 
-  // Fetch today's top casts from API with fallback
+  // Fetch today's top casts from API
   useEffect(() => {
     async function fetchTodaysCasts() {
       try {
@@ -101,75 +97,19 @@ export default function HomeTab() {
         console.log("Received data:", data);
         console.log("Casts count:", data.casts?.length || 0);
         
-        if (data.casts && data.casts.length > 0) {
-          setRankedCasts(data.casts);
-          setLoading(false);
-          return;
-        }
-        
-        // Fallback: Use hook data if API returns empty
-        console.log("API returned empty, using fallback data");
-        throw new Error("No casts from API");
+        setRankedCasts(data.casts || []);
       } catch (error) {
-        console.error("Error fetching today's casts from API, using fallback:", error);
-        // Fallback to hook data
-        if (fallbackCastsData && Array.isArray(fallbackCastsData) && fallbackCastsData.length > 0) {
-          console.log("Using fallback casts:", fallbackCastsData.length);
-          processFallbackCasts(fallbackCastsData);
-        } else {
-          setRankedCasts([]);
-        }
+        console.error("Error fetching today's casts:", error);
+        setRankedCasts([]);
+      } finally {
         setLoading(false);
       }
     }
 
-    function processFallbackCasts(castsData: unknown[]) {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const todayStartTimestamp = todayStart.getTime();
-      const nowTimestamp = Date.now();
-
-      const casts = castsData.map((cast: unknown) => {
-        const castRecord = cast as unknown as Record<string, unknown>;
-        const author = castRecord.author as { fid?: number; username?: string; displayName?: string; pfp?: { url?: string } } | undefined;
-        const reactions = castRecord.reactions as { likes?: number; recasts?: number; replies?: number } | undefined;
-        const embeds = castRecord.embeds as Array<{ url?: string }> | undefined;
-        const timestamp = (castRecord.timestamp as number | undefined) || (castRecord.publishedAt as number | undefined) || Date.now();
-
-        return {
-          hash: (castRecord.hash as string | undefined) || (castRecord.id as string | undefined) || "",
-          text: (castRecord.text as string | undefined) || (castRecord.content as string | undefined) || "",
-          author: {
-            fid: author?.fid || (castRecord.fid as number | undefined) || 0,
-            username: author?.username || (castRecord.username as string | undefined) || "unknown",
-            displayName: author?.displayName || (castRecord.displayName as string | undefined) || "Unknown",
-            pfp: { url: author?.pfp?.url || ((castRecord.pfp as { url?: string } | undefined)?.url) || "" },
-          },
-          reactions: {
-            likes: reactions?.likes || (castRecord.likes as number | undefined) || 0,
-            recasts: reactions?.recasts || (castRecord.recasts as number | undefined) || 0,
-            replies: reactions?.replies || (castRecord.replies as number | undefined) || 0,
-          },
-          timestamp,
-          embeds: embeds || [],
-        };
-      });
-
-      // Filter to today and sort by engagement
-      const todayCasts = casts.filter(c => c.timestamp >= todayStartTimestamp && c.timestamp <= nowTimestamp);
-      const sorted = todayCasts.sort((a, b) => {
-        const aEngagement = (a.reactions.likes || 0) + (a.reactions.recasts || 0) + (a.reactions.replies || 0);
-        const bEngagement = (b.reactions.likes || 0) + (b.reactions.recasts || 0) + (b.reactions.replies || 0);
-        return bEngagement - aEngagement;
-      });
-
-      setRankedCasts(sorted.slice(0, 20));
-    }
-
     fetchTodaysCasts();
-  }, [fallbackCastsData]);
+  }, []);
 
-  if (loading || fallbackLoading) {
+  if (loading) {
     return (
       <div className={styles.container}>
         <div className={styles.loading}>Loading top casts...</div>
