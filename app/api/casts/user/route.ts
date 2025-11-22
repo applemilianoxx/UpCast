@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Using Neynar API - more reliable than Farcaster Kit
+const NEYNAR_API = "https://api.neynar.com/v2";
+const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY || ""; // Get free API key from https://neynar.com
 const FARCASTER_KIT_API = "https://api.farcasterkit.com";
 
 interface Cast {
@@ -127,7 +130,7 @@ export async function GET(request: NextRequest) {
     }
 
     const allCasts: Cast[] = [];
-    let cursor: number | undefined;
+    let cursor: string | undefined;
     let hasMore = true;
     let pageCount = 0;
     const maxPages = 50; // Fetch up to 50 pages (5000 casts max)

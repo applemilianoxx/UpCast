@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
-const FARCASTER_KIT_API = "https://api.farcasterkit.com";
+// Using Neynar API - more reliable than Farcaster Kit
+const NEYNAR_API = "https://api.neynar.com/v2";
+const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY || ""; // Get free API key from https://neynar.com
 
 interface Cast {
   hash: string;
@@ -21,19 +23,64 @@ interface Cast {
 }
 
 async function fetchCastsWithPagination(
-  cursor?: number,
+  cursor?: string,
   limit: number = 100
-): Promise<{ casts: unknown[]; nextCursor?: number }> {
-  const url = new URL(`${FARCASTER_KIT_API}/casts/latest`);
+): Promise<{ casts: unknown[]; nextCursor?: string }> {
+  // Try Neynar API first, fallback to Farcaster Kit
+  const useNeynar = !!NEYNAR_API_KEY;
+  
+  if (useNeynar) {
+    try {
+      const url = new URL(`${NEYNAR_API}/farcaster/feed`);
+      url.searchParams.set("feed_type", "filter");
+      url.searchParams.set("filter_type", "global_trending");
+      url.searchParams.set("limit", limit.toString());
+      if (cursor) {
+        url.searchParams.set("cursor", cursor);
+      }
+
+      console.log(`Fetching from Neynar: ${url.toString()}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      
+      const response = await fetch(url.toString(), {
+        headers: {
+          'Accept': 'application/json',
+          'api_key': NEYNAR_API_KEY,
+        },
+        signal: controller.signal,
+        cache: 'no-store',
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`Neynar API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const casts = data.result?.casts || data.casts || [];
+      const nextCursor = data.result?.next?.cursor || data.next?.cursor;
+      
+      console.log("Neynar API response:", { castsCount: casts.length, nextCursor });
+      
+      return { casts, nextCursor };
+    } catch (error) {
+      console.error("Neynar API failed, trying Farcaster Kit:", error);
+    }
+  }
+  
+  // Fallback to Farcaster Kit API
+  const url = new URL("https://api.farcasterkit.com/casts/latest");
   url.searchParams.set("limit", limit.toString());
   if (cursor) {
-    url.searchParams.set("cursor", cursor.toString());
+    url.searchParams.set("cursor", cursor);
   }
 
   try {
-    console.log(`Fetching from: ${url.toString()}`);
+    console.log(`Fetching from Farcaster Kit: ${url.toString()}`);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     
     const response = await fetch(url.toString(), {
       headers: {
@@ -53,35 +100,21 @@ async function fetchCastsWithPagination(
     }
     
     const data = await response.json();
-    
-    // Handle different response formats
     const casts = Array.isArray(data) ? data : (data.casts || data.data || []);
     const nextCursor = data.nextCursor || data.cursor || data.next?.cursor;
     
-    console.log("Farcaster Kit API response:", { 
-      isArray: Array.isArray(data), 
-      hasCasts: !!data.casts, 
-      castsCount: casts.length,
-      keys: Object.keys(data),
-      nextCursor
-    });
+    console.log("Farcaster Kit API response:", { castsCount: casts.length, nextCursor });
     
-    return {
-      casts,
-      nextCursor,
-    };
+    return { casts, nextCursor };
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        console.error('Request timeout after 15 seconds');
         throw new Error('Request timeout');
       }
       if (error.message.includes('fetch failed')) {
-        console.error('Network error - fetch failed:', error.message);
         throw new Error(`Network error: ${error.message}`);
       }
     }
-    console.error('Fetch error:', error);
     throw error;
   }
 }
@@ -94,7 +127,7 @@ export async function GET() {
     const nowTimestamp = Date.now();
 
     const allCasts: Cast[] = [];
-    let cursor: number | undefined;
+    let cursor: string | undefined;
     let hasMore = true;
     let pageCount = 0;
     const maxPages = 20; // Limit to prevent infinite loops
