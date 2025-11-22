@@ -192,6 +192,9 @@ export async function GET() {
   console.log("🔵 [API /casts/today] Fetch available:", typeof fetch !== 'undefined');
   console.log("🔵 [API /casts/today] NEYNAR_API_KEY present:", !!NEYNAR_API_KEY);
   
+  // Declare allCasts outside try block so it's accessible in catch block
+  const allCasts: Cast[] = [];
+  
   try {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -204,8 +207,6 @@ export async function GET() {
       todayStartTimestamp,
       nowTimestamp,
     });
-
-    const allCasts: Cast[] = [];
     let cursor: string | undefined;
     let hasMore = true;
     let pageCount = 0;
