@@ -35,7 +35,7 @@ export default function HomeTab() {
   const [spotlights] = useState<Spotlight[]>([]); // TODO: Fetch from API
 
   // Calculate score for ranking
-  const calculateScore = (cast: any): number => {
+  const calculateScore = (cast: Record<string, unknown>): number => {
     // Handle different possible response formats
     const likes = cast.reactions?.likes || cast.likes || 0;
     const recasts = cast.reactions?.recasts || cast.recasts || 0;
@@ -57,7 +57,7 @@ export default function HomeTab() {
     const casts = castsData?.casts || castsData?.data || castsData || [];
     if (!Array.isArray(casts) || casts.length === 0) return [];
     
-    const castsWithScores = casts.map((cast: any) => ({
+    const castsWithScores = casts.map((cast: Record<string, unknown>) => ({
       hash: cast.hash || cast.id,
       text: cast.text || cast.content || "",
       author: {

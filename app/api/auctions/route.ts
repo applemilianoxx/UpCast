@@ -37,7 +37,7 @@ export async function POST(request: Request) {
         bidder,
       },
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to place bid" },
       { status: 400 }
