@@ -1,6 +1,8 @@
 "use client";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
-import { useState } from "react";
+import { useLatestCasts } from "farcasterkit";
+import { useState, useMemo } from "react";
+import { Flame, Square, MessageSquare } from "lucide-react";
 import styles from "./ProfileTab.module.css";
 
 interface UserStats {
@@ -49,25 +51,65 @@ export default function ProfileTab() {
     ((userAny?.pfp as Record<string, unknown> | undefined)?.url as string | undefined) ||
     ((userAny?.profile as Record<string, unknown> | undefined)?.image as string | undefined) ||
     (userAny?.profileImage as string | undefined);
+  // Fetch user's casts if FID is available
+  const { data: userCastsData, loading: castsLoading } = useLatestCasts({
+    fid: user?.fid,
+    limit: 50,
+  });
+
+  // Process and rank user's casts
+  const userCasts = useMemo(() => {
+    if (!userCastsData || !Array.isArray(userCastsData) || userCastsData.length === 0) {
+      return [];
+    }
+
+    const casts = userCastsData.map((cast: Record<string, unknown>) => {
+      const author = cast.author as { fid?: number; username?: string; displayName?: string; pfp?: { url?: string } } | undefined;
+      const reactions = cast.reactions as { likes?: number; recasts?: number; replies?: number } | undefined;
+      
+      const likes = reactions?.likes || (cast.likes as number | undefined) || 0;
+      const recasts = reactions?.recasts || (cast.recasts as number | undefined) || 0;
+      const replies = reactions?.replies || (cast.replies as number | undefined) || 0;
+      const timestamp = (cast.timestamp as number | undefined) || (cast.publishedAt as number | undefined) || Date.now();
+      
+      // Calculate score similar to HomeTab
+      const age = Date.now() - timestamp;
+      const hoursOld = age / (1000 * 60 * 60);
+      const engagement = likes * 1 + recasts * 2 + replies * 1.5;
+      const recencyBonus = Math.max(0, 24 - hoursOld) / 24;
+      const score = engagement * (1 + recencyBonus * 0.5);
+
+      return {
+        hash: (cast.hash as string | undefined) || (cast.id as string | undefined) || "",
+        text: (cast.text as string | undefined) || (cast.content as string | undefined) || "",
+        author: {
+          fid: author?.fid || (cast.fid as number | undefined) || 0,
+          username: author?.username || (cast.username as string | undefined) || "unknown",
+          displayName: author?.displayName || (cast.displayName as string | undefined) || "Unknown",
+          pfp: { url: author?.pfp?.url || ((cast.pfp as { url?: string } | undefined)?.url) || "" },
+        },
+        reactions: {
+          likes,
+          recasts,
+          replies,
+        },
+        timestamp,
+        score,
+      };
+    });
+
+    // Sort by score and return top 10
+    return casts.sort((a, b) => b.score - a.score).slice(0, 10);
+  }, [userCastsData]);
+
   const [stats] = useState<UserStats>({
-    totalCasts: 42,
-    topRankedCasts: 8,
+    totalCasts: userCasts.length,
+    topRankedCasts: userCasts.filter((c) => c.score > 100).length,
     spotlightWins: 2,
     totalBids: 15,
     totalPoints: 1250,
     bestRank: 3,
   });
-
-  const [userCasts] = useState<UserCast[]>([
-    // TODO: Fetch user's casts from API
-    {
-      hash: "0x123",
-      text: "My top cast that ranked #3!",
-      rank: 3,
-      score: 1250,
-      timestamp: Date.now() - 3600000,
-    },
-  ]);
 
   const formatTime = (timestamp: number) => {
     const hours = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60));
@@ -113,6 +155,44 @@ export default function ProfileTab() {
         </div>
       </div>
 
+      {/* Your Top Casts - Right below profile */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Your Top Casts</h2>
+        {castsLoading ? (
+          <div className={styles.emptyState}>
+            <p>Loading your casts...</p>
+          </div>
+        ) : userCasts.length === 0 ? (
+          <div className={styles.emptyState}>
+            <p>No casts yet. Start casting to see them here!</p>
+          </div>
+        ) : (
+          <div className={styles.castsList}>
+            {userCasts.map((cast, index) => (
+              <div key={cast.hash} className={styles.castCard}>
+                <div className={styles.castContent}>
+                  <p className={styles.castText}>{cast.text}</p>
+                  <div className={styles.castStats}>
+                    <span className={styles.statItem}>
+                      <Flame className={styles.statIcon} size={14} />
+                      {cast.reactions?.likes || 0}
+                    </span>
+                    <span className={styles.statItem}>
+                      <Square className={styles.statIcon} size={14} />
+                      {cast.reactions?.recasts || 0}
+                    </span>
+                    <span className={styles.statItem}>
+                      <MessageSquare className={styles.statIcon} size={14} />
+                      {cast.reactions?.replies || 0}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* Stats Grid */}
       <div className={styles.statsGrid}>
         <div className={styles.statCard}>
@@ -147,33 +227,6 @@ export default function ProfileTab() {
           </div>
         </div>
       )}
-
-      {/* Your Top Casts */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Your Top Casts</h2>
-        {userCasts.length === 0 ? (
-          <div className={styles.emptyState}>
-            <p>No ranked casts yet. Keep casting to get featured!</p>
-          </div>
-        ) : (
-          <div className={styles.castsList}>
-            {userCasts.map((cast) => (
-              <div key={cast.hash} className={styles.castCard}>
-                {cast.rank && (
-                  <div className={styles.rankBadge}>#{cast.rank}</div>
-                )}
-                <div className={styles.castContent}>
-                  <p className={styles.castText}>{cast.text}</p>
-                  <div className={styles.castMeta}>
-                    <span>Score: {Math.round(cast.score)}</span>
-                    <span>{formatTime(cast.timestamp)}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
 
       {/* Bidding History */}
       <section className={styles.section}>
