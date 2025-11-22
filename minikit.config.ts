@@ -9,15 +9,15 @@ const ROOT_URL =
  */
 export const minikitConfig = {
   accountAssociation: {
-    header: "",
-    payload: "",
-    signature: ""
+    header: "eyJmaWQiOjE0MDcyNTYsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHgyNDg3OTQ2ZTM2NDVjYTI2ZTVDMzY2MzFEQzBiMEUyNEYxNGE4M0JBIn0",
+    payload: "eyJkb21haW4iOiJjdWJleS1taW5pLWFwcC52ZXJjZWwuYXBwIn0",
+    signature: "cD6bcNlQp7EiqBeC3BgbvHYJmsAshCSyrnMoW/UD1HVFLIhAWguk7DRyvi7Z+SisS/N9qS0iWSDciqYXAQkZBhw=",
   },
   miniapp: {
     version: "1",
-    name: "Cubey", 
-    subtitle: "Your AI Ad Companion", 
-    description: "Ads",
+    name: "UPLYST", 
+    subtitle: "Front page for Farcaster casts", 
+    description: "UPLYST is the front page for Farcaster casts, combining organic top posts with paid spotlight auctions, rewards, and a personal performance profile.",
     screenshotUrls: [`${ROOT_URL}/screenshot-portrait.png`],
     iconUrl: `${ROOT_URL}/blue-icon.png`,
     splashImageUrl: `${ROOT_URL}/blue-hero.png`,
@@ -25,11 +25,11 @@ export const minikitConfig = {
     homeUrl: ROOT_URL,
     webhookUrl: `${ROOT_URL}/api/webhook`,
     primaryCategory: "social",
-    tags: ["marketing", "ads", "quickstart", "waitlist"],
+    tags: ["farcaster", "casts", "ranking", "auctions", "discovery"],
     heroImageUrl: `${ROOT_URL}/blue-hero.png`, 
-    tagline: "",
-    ogTitle: "",
-    ogDescription: "",
+    tagline: "Front page for Farcaster casts",
+    ogTitle: "UPLYST - Front page for Farcaster casts",
+    ogDescription: "Discover top casts and bid for spotlight slots",
     ogImageUrl: `${ROOT_URL}/blue-hero.png`,
   },
 } as const;

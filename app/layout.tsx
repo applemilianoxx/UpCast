@@ -10,14 +10,17 @@ export async function generateMetadata(): Promise<Metadata> {
     title: minikitConfig.miniapp.name,
     description: minikitConfig.miniapp.description,
     other: {
-      "fc:frame": JSON.stringify({
-        version: minikitConfig.miniapp.version,
+      "fc:miniapp": JSON.stringify({
+        version: "next",
         imageUrl: minikitConfig.miniapp.heroImageUrl,
         button: {
-          title: `Join the ${minikitConfig.miniapp.name} Waitlist`,
+          title: `Launch ${minikitConfig.miniapp.name}`,
           action: {
-            name: `Launch ${minikitConfig.miniapp.name}`,
-            type: "launch_frame",
+            type: "launch_miniapp",
+            name: minikitConfig.miniapp.name,
+            url: minikitConfig.miniapp.homeUrl,
+            splashImageUrl: minikitConfig.miniapp.splashImageUrl,
+            splashBackgroundColor: minikitConfig.miniapp.splashBackgroundColor,
           },
         },
       }),

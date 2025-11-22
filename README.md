@@ -16,16 +16,17 @@ Before getting started, make sure you have:
 
 ## Getting Started
 
-### 1. Clone this repository 
+### 1. Navigate to the project directory
+
+If you're working with this repository, navigate to the project folder:
 
 ```bash
-git clone https://github.com/base/demos.git
+cd new-mini-app-quickstart
 ```
 
 ### 2. Install dependencies:
 
 ```bash
-cd demos/minikit/waitlist-mini-app-qs
 npm install
 ```
 
@@ -51,9 +52,9 @@ npm run dev
 
 The `minikit.config.ts` file configures your manifest located at `app/.well-known/farcaster.json`.
 
-**Skip the `accountAssociation` object for now.**
-
 To personalize your app, change the `name`, `subtitle`, and `description` fields and add images to your `/public` folder. Then update their URLs in the file.
+
+> **Note:** After updating your manifest, you'll need to repost your mini app URL to Base/Farcaster to reindex the changes (posting is required for indexing).
 
 ## Deployment
 
@@ -105,8 +106,8 @@ export const minikitConfig = {
         "payload": "your-payload-here",
         "signature": "your-signature-here"
     },
-    frame: {
-        // ... rest of your frame configuration
+    miniapp: {
+        // ... rest of your miniapp configuration
     },
 }
 ```
@@ -129,7 +130,32 @@ Go to [base.dev/preview](https://base.dev/preview) to validate your app:
 
 ### 2. Publish to Base App
 
-To publish your app, create a post in the Base app with your app's URL.
+**Posting is required for indexing.** To publish your app and make it discoverable:
+
+1. Create a post in the Base app (or Farcaster) with your app's URL
+2. Once posted, your mini app will be indexed and searchable
+3. **Important:** If you update your manifest, you must repost your URL to reindex the changes
+
+> **Pro Tip:** The more engagement (likes, shares, saves) your mini app receives, the more likely it is to appear in trending and category sections. Think about social mechanics and make your app shareable!
+
+## Best Practices
+
+### Mobile-First Design
+Mini apps are primarily opened on mobile devices. Ensure your design:
+- Works well on small screens without horizontal scrolling
+- Uses clear, concise UI elements
+- Maximizes limited screen space effectively
+
+### User Experience
+- **Onboarding:** Allow users to explore your app before requiring authentication
+- **Wallets:** TBA already has wallets - don't add extra wallet connection layers (Minikit handles this automatically)
+- **Transactions:** Aim for gasless, batched transactions using Base Pay when possible
+- **Social:** Build sharing features into your app to encourage distribution
+
+### Discovery & Engagement
+- Post your mini app URL to get indexed
+- Build social mechanics to encourage sharing
+- Engagement metrics (likes, shares, saves) drive trending/featured status
 
 ## Learn More
 

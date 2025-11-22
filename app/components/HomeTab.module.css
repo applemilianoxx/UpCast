@@ -1,0 +1,212 @@
+.container {
+  padding: 1rem;
+  padding-bottom: 5rem; /* Space for tab bar */
+  max-width: 100%;
+}
+
+.header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.spotlightSection {
+  margin-bottom: 2rem;
+}
+
+.sectionTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--foreground);
+}
+
+.spotlightGrid {
+  display: grid;
+  gap: 1rem;
+}
+
+.spotlightCard {
+  position: relative;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  border: 2px solid rgba(102, 126, 234, 0.3);
+  border-radius: 12px;
+  padding: 1rem;
+  overflow: hidden;
+}
+
+.spotlightBadge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.spotlightContent {
+  margin-top: 1.5rem;
+}
+
+.topCastsSection {
+  margin-top: 2rem;
+}
+
+.castsList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.castCard {
+  position: relative;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.castCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.rankBadge {
+  position: absolute;
+  top: -0.5rem;
+  left: 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.castContent {
+  margin-top: 0.5rem;
+}
+
+.castHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.authorInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.authorName {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.authorHandle {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.timeAgo {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.castText {
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+  color: var(--foreground);
+}
+
+.embed {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.embed a {
+  color: #667eea;
+  word-break: break-all;
+}
+
+.castStats {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.score {
+  margin-left: auto;
+  font-weight: 600;
+  color: #667eea;
+}
+
+@media (prefers-color-scheme: light) {
+  .castCard {
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+  
+  .castText {
+    color: var(--foreground);
+  }
+  
+  .authorHandle {
+    color: rgba(0, 0, 0, 0.6);
+  }
+  
+  .timeAgo {
+    color: rgba(0, 0, 0, 0.5);
+  }
+  
+  .castStats {
+    color: rgba(0, 0, 0, 0.7);
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+  }
+  
+  .embed {
+    background: rgba(0, 0, 0, 0.03);
+  }
+}
+
