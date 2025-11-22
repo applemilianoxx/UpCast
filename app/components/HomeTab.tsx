@@ -37,10 +37,11 @@ export default function HomeTab() {
   // Calculate score for ranking
   const calculateScore = (cast: Record<string, unknown>): number => {
     // Handle different possible response formats
-    const likes = cast.reactions?.likes || cast.likes || 0;
-    const recasts = cast.reactions?.recasts || cast.recasts || 0;
-    const replies = cast.reactions?.replies || cast.replies || 0;
-    const timestamp = cast.timestamp || cast.publishedAt || Date.now();
+    const reactions = cast.reactions as { likes?: number; recasts?: number; replies?: number } | undefined;
+    const likes = reactions?.likes || (cast.likes as number | undefined) || 0;
+    const recasts = reactions?.recasts || (cast.recasts as number | undefined) || 0;
+    const replies = reactions?.replies || (cast.replies as number | undefined) || 0;
+    const timestamp = (cast.timestamp as number | undefined) || (cast.publishedAt as number | undefined) || Date.now();
     const age = Date.now() - timestamp;
     const hoursOld = age / (1000 * 60 * 60);
     
@@ -57,24 +58,30 @@ export default function HomeTab() {
     const casts = castsData?.casts || castsData?.data || castsData || [];
     if (!Array.isArray(casts) || casts.length === 0) return [];
     
-    const castsWithScores = casts.map((cast: Record<string, unknown>) => ({
-      hash: cast.hash || cast.id,
-      text: cast.text || cast.content || "",
-      author: {
-        fid: cast.author?.fid || cast.fid || 0,
-        username: cast.author?.username || cast.username || "unknown",
-        displayName: cast.author?.displayName || cast.displayName || "Unknown",
-        pfp: { url: cast.author?.pfp?.url || cast.pfp?.url || "" },
-      },
-      reactions: {
-        likes: cast.reactions?.likes || cast.likes || 0,
-        recasts: cast.reactions?.recasts || cast.recasts || 0,
-        replies: cast.reactions?.replies || cast.replies || 0,
-      },
-      timestamp: cast.timestamp || cast.publishedAt || Date.now(),
-      embeds: cast.embeds || [],
-      score: calculateScore(cast),
-    }));
+    const castsWithScores = casts.map((cast: Record<string, unknown>) => {
+      const author = cast.author as { fid?: number; username?: string; displayName?: string; pfp?: { url?: string } } | undefined;
+      const reactions = cast.reactions as { likes?: number; recasts?: number; replies?: number } | undefined;
+      const embeds = cast.embeds as Array<{ url?: string }> | undefined;
+      
+      return {
+        hash: (cast.hash as string | undefined) || (cast.id as string | undefined) || "",
+        text: (cast.text as string | undefined) || (cast.content as string | undefined) || "",
+        author: {
+          fid: author?.fid || (cast.fid as number | undefined) || 0,
+          username: author?.username || (cast.username as string | undefined) || "unknown",
+          displayName: author?.displayName || (cast.displayName as string | undefined) || "Unknown",
+          pfp: { url: author?.pfp?.url || ((cast.pfp as { url?: string } | undefined)?.url) || "" },
+        },
+        reactions: {
+          likes: reactions?.likes || (cast.likes as number | undefined) || 0,
+          recasts: reactions?.recasts || (cast.recasts as number | undefined) || 0,
+          replies: reactions?.replies || (cast.replies as number | undefined) || 0,
+        },
+        timestamp: (cast.timestamp as number | undefined) || (cast.publishedAt as number | undefined) || Date.now(),
+        embeds: embeds || [],
+        score: calculateScore(cast),
+      };
+    });
     
     return castsWithScores.sort((a, b) => b.score - a.score).slice(0, 20);
   }, [castsData]);
