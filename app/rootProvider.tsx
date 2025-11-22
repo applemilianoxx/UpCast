@@ -26,7 +26,7 @@ export function RootProvider({ children }: { children: ReactNode }) {
       }}
     >
       <FarcasterKitProvider>
-        {children}
+        {children as React.ReactElement}
       </FarcasterKitProvider>
     </OnchainKitProvider>
   );
