@@ -88,11 +88,6 @@ async function fetchUserCastsWithPagination(
     console.error('Fetch error:', error);
     throw error;
   }
-  
-  return {
-    casts,
-    nextCursor,
-  };
 }
 
 function calculateScore(cast: Cast): number {
