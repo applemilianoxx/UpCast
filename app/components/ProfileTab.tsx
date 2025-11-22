@@ -45,23 +45,54 @@ export default function ProfileTab() {
     ((userAny?.profile as Record<string, unknown> | undefined)?.image as string | undefined) ||
     (userAny?.profileImage as string | undefined);
   // Fetch user's casts if FID is available
-  // Note: useLatestCasts with fid gets casts by that user, but may only return recent ones
+  // Increased limit and will try to fetch multiple pages if needed
   const { data: userCastsData, loading: castsLoading } = useLatestCasts(
-    user?.fid ? { fid: user.fid, limit: 100 } : { limit: 0 }
+    user?.fid ? { fid: user.fid, limit: 500 } : { limit: 0 }
   );
+  
+  // Also try fetching without limit restriction to get more casts
+  const { data: userCastsData2 } = useLatestCasts(
+    user?.fid ? { fid: user.fid, limit: 1000 } : { limit: 0 }
+  );
+  
+  // Combine both data sources if available
+  const combinedCastsData = useMemo(() => {
+    const casts1 = Array.isArray(userCastsData) ? userCastsData : [];
+    const casts2 = Array.isArray(userCastsData2) ? userCastsData2 : [];
+    // Remove duplicates by hash
+    const allCasts = [...casts1, ...casts2];
+    const uniqueCasts = allCasts.filter((cast, index, self) => {
+      const hash = (cast as Record<string, unknown>).hash || (cast as Record<string, unknown>).id;
+      return index === self.findIndex((c) => 
+        ((c as Record<string, unknown>).hash || (c as Record<string, unknown>).id) === hash
+      );
+    });
+    return uniqueCasts.length > 0 ? uniqueCasts : (userCastsData || userCastsData2);
+  }, [userCastsData, userCastsData2]);
 
   // Debug: Log casts data
   if (typeof window !== 'undefined') {
     console.log('User FID:', user?.fid);
-    console.log('User casts data:', userCastsData);
+    console.log('User casts data 1:', userCastsData);
+    console.log('User casts data 2:', userCastsData2);
+    console.log('Combined casts data:', combinedCastsData);
     console.log('Casts loading:', castsLoading);
   }
 
   // Process and rank user's casts
   const userCasts = useMemo(() => {
-    // Handle different response formats
+    // Handle different response formats - use combined data
     let casts: unknown[] = [];
-    if (Array.isArray(userCastsData)) {
+    if (Array.isArray(combinedCastsData)) {
+      casts = combinedCastsData;
+    } else if (combinedCastsData && typeof combinedCastsData === 'object') {
+      const dataObj = combinedCastsData as Record<string, unknown>;
+      if (Array.isArray(dataObj.casts)) {
+        casts = dataObj.casts;
+      } else if (Array.isArray(dataObj.data)) {
+        casts = dataObj.data;
+      }
+    } else if (Array.isArray(userCastsData)) {
       casts = userCastsData;
     } else if (userCastsData && typeof userCastsData === 'object') {
       const dataObj = userCastsData as Record<string, unknown>;
@@ -115,11 +146,11 @@ export default function ProfileTab() {
       };
     });
 
-    // Sort by score and return top 10
-    const sorted = processedCasts.sort((a, b) => b.score - a.score).slice(0, 10);
+    // Sort by score and return all (not just top 10, show all user casts)
+    const sorted = processedCasts.sort((a, b) => b.score - a.score);
     console.log('Processed and sorted casts:', sorted.length);
     return sorted;
-  }, [userCastsData]);
+  }, [combinedCastsData, userCastsData]);
 
   const [stats] = useState<UserStats>({
     totalCasts: userCasts.length,

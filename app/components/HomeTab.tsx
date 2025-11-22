@@ -32,7 +32,8 @@ interface Spotlight {
 }
 
 export default function HomeTab() {
-  const { data: castsData, loading } = useLatestCasts({ limit: 100 });
+  // Fetch latest casts from all users (increased limit to get more data for today's filter)
+  const { data: castsData, loading } = useLatestCasts({ limit: 500 });
   const [spotlights] = useState<Spotlight[]>([
     // Mock data for now
     {
@@ -95,7 +96,7 @@ export default function HomeTab() {
     return engagement * (1 + recencyBonus * 0.5);
   };
 
-  // Rank casts by score
+  // Rank casts by score - filter to today only
   const rankedCasts = useMemo(() => {
     // useLatestCasts returns data as an array directly
     if (!castsData || !Array.isArray(castsData) || castsData.length === 0) {
@@ -104,32 +105,53 @@ export default function HomeTab() {
     
     const casts = castsData;
     
-    const castsWithScores = casts.map((cast: Record<string, unknown>) => {
-      const author = cast.author as { fid?: number; username?: string; displayName?: string; pfp?: { url?: string } } | undefined;
-      const reactions = cast.reactions as { likes?: number; recasts?: number; replies?: number } | undefined;
-      const embeds = cast.embeds as Array<{ url?: string }> | undefined;
-      
-      return {
-        hash: (cast.hash as string | undefined) || (cast.id as string | undefined) || "",
-        text: (cast.text as string | undefined) || (cast.content as string | undefined) || "",
-        author: {
-          fid: author?.fid || (cast.fid as number | undefined) || 0,
-          username: author?.username || (cast.username as string | undefined) || "unknown",
-          displayName: author?.displayName || (cast.displayName as string | undefined) || "Unknown",
-          pfp: { url: author?.pfp?.url || ((cast.pfp as { url?: string } | undefined)?.url) || "" },
-        },
-        reactions: {
-          likes: reactions?.likes || (cast.likes as number | undefined) || 0,
-          recasts: reactions?.recasts || (cast.recasts as number | undefined) || 0,
-          replies: reactions?.replies || (cast.replies as number | undefined) || 0,
-        },
-        timestamp: (cast.timestamp as number | undefined) || (cast.publishedAt as number | undefined) || Date.now(),
-        embeds: embeds || [],
-        score: calculateScore(cast),
-      };
-    });
+    // Get today's date range (start of today to now)
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartTimestamp = todayStart.getTime();
+    const nowTimestamp = Date.now();
     
-    return castsWithScores.sort((a, b) => b.score - a.score).slice(0, 20);
+    const castsWithScores = casts
+      .map((cast: Record<string, unknown>) => {
+        const author = cast.author as { fid?: number; username?: string; displayName?: string; pfp?: { url?: string } } | undefined;
+        const reactions = cast.reactions as { likes?: number; recasts?: number; replies?: number } | undefined;
+        const embeds = cast.embeds as Array<{ url?: string }> | undefined;
+        const timestamp = (cast.timestamp as number | undefined) || (cast.publishedAt as number | undefined) || Date.now();
+        
+        // Filter: only include casts from today
+        if (timestamp < todayStartTimestamp || timestamp > nowTimestamp) {
+          return null;
+        }
+        
+        return {
+          hash: (cast.hash as string | undefined) || (cast.id as string | undefined) || "",
+          text: (cast.text as string | undefined) || (cast.content as string | undefined) || "",
+          author: {
+            fid: author?.fid || (cast.fid as number | undefined) || 0,
+            username: author?.username || (cast.username as string | undefined) || "unknown",
+            displayName: author?.displayName || (cast.displayName as string | undefined) || "Unknown",
+            pfp: { url: author?.pfp?.url || ((cast.pfp as { url?: string } | undefined)?.url) || "" },
+          },
+          reactions: {
+            likes: reactions?.likes || (cast.likes as number | undefined) || 0,
+            recasts: reactions?.recasts || (cast.recasts as number | undefined) || 0,
+            replies: reactions?.replies || (cast.replies as number | undefined) || 0,
+          },
+          timestamp,
+          embeds: embeds || [],
+          score: calculateScore(cast),
+        };
+      })
+      .filter((cast): cast is NonNullable<typeof cast> => cast !== null); // Remove nulls
+    
+    // Sort by engagement score (likes + recasts + replies) - no recency bonus for today's ranking
+    return castsWithScores
+      .sort((a, b) => {
+        const aEngagement = (a.reactions.likes || 0) + (a.reactions.recasts || 0) + (a.reactions.replies || 0);
+        const bEngagement = (b.reactions.likes || 0) + (b.reactions.recasts || 0) + (b.reactions.replies || 0);
+        return bEngagement - aEngagement;
+      })
+      .slice(0, 20);
   }, [castsData]);
 
   if (loading) {
