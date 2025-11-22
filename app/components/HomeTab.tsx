@@ -1,6 +1,7 @@
 "use client";
 import { useLatestCasts } from "farcasterkit";
 import { useState, useMemo } from "react";
+import { Flame, Square, MessageCircle } from "lucide-react";
 import styles from "./HomeTab.module.css";
 
 interface Cast {
@@ -32,7 +33,50 @@ interface Spotlight {
 
 export default function HomeTab() {
   const { data: castsData, loading } = useLatestCasts({ limit: 100 });
-  const [spotlights] = useState<Spotlight[]>([]); // TODO: Fetch from API
+  const [activeView, setActiveView] = useState<"frontpage" | "spotlight">("frontpage");
+  const [spotlights] = useState<Spotlight[]>([
+    // Mock data for now
+    {
+      id: "1",
+      castHash: "0x1",
+      cast: {
+        hash: "0x1",
+        text: "Check out my new project! More details below",
+        author: {
+          fid: 1,
+          username: "carol",
+          displayName: "carol",
+          pfp: { url: "" },
+        },
+        reactions: { likes: 0, recasts: 0, replies: 0 },
+        timestamp: Date.now(),
+        embeds: [],
+      },
+      bidder: "carol",
+      bidAmount: 0.05,
+      expiresAt: Date.now() + 3600000,
+    },
+    {
+      id: "2",
+      castHash: "0x2",
+      cast: {
+        hash: "0x2",
+        text: "#web3 is the future 🌐",
+        author: {
+          fid: 2,
+          username: "dave",
+          displayName: "dave",
+          pfp: { url: "" },
+        },
+        reactions: { likes: 0, recasts: 0, replies: 0 },
+        timestamp: Date.now(),
+        embeds: [],
+      },
+      bidder: "dave",
+      bidAmount: 0.065,
+      expiresAt: Date.now() + 3600000,
+    },
+  ]); // TODO: Fetch from API
 
   // Calculate score for ranking
   const calculateScore = (cast: Record<string, unknown>): number => {
@@ -106,96 +150,109 @@ export default function HomeTab() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1 className={styles.title}>UPLYST</h1>
-        <p className={styles.subtitle}>Top Casts Today</p>
+      {/* Top Tabs */}
+      <div className={styles.topTabs}>
+        <button
+          className={`${styles.tabButton} ${activeView === "frontpage" ? styles.active : ""}`}
+          onClick={() => setActiveView("frontpage")}
+        >
+          Front Page
+        </button>
+        <button
+          className={`${styles.tabButton} ${activeView === "spotlight" ? styles.active : ""}`}
+          onClick={() => setActiveView("spotlight")}
+        >
+          Spotlight
+        </button>
       </div>
 
-      {/* Spotlight Section */}
-      {spotlights.length > 0 && (
+      {activeView === "frontpage" && (
+        <>
+          {/* Top Casts Section */}
+          <section className={styles.topCastsSection}>
+            <h2 className={styles.sectionTitle}>Top Casts Today</h2>
+            <div className={styles.castsList}>
+              {rankedCasts.map((cast, index) => (
+                <div key={cast.hash} className={styles.castCard}>
+                  <div className={styles.rankBadge}>
+                    {index + 1}
+                    <Flame className={styles.flameIcon} size={12} />
+                  </div>
+                  <div className={styles.castContent}>
+                    <div className={styles.castHeader}>
+                      <div className={styles.authorInfo}>
+                        {cast.author.pfp?.url ? (
+                          <img
+                            src={cast.author.pfp.url}
+                            alt={cast.author.displayName}
+                            className={styles.avatar}
+                          />
+                        ) : (
+                          <div className={styles.avatarPlaceholder}>
+                            {cast.author.displayName[0]?.toUpperCase() || "?"}
+                          </div>
+                        )}
+                        <div className={styles.authorName}>{cast.author.username}</div>
+                      </div>
+                    </div>
+                    <p className={styles.castText}>{cast.text}</p>
+                    {cast.embeds?.[0]?.url && (
+                      <div className={styles.embedImage}>
+                        <img src={cast.embeds[0].url} alt="Embed" className={styles.embedImg} />
+                      </div>
+                    )}
+                    <div className={styles.castStats}>
+                      <span className={styles.statItem}>
+                        <Flame size={14} />
+                        {cast.reactions?.likes || 0}
+                      </span>
+                      <span className={styles.statItem}>
+                        <Square size={14} />
+                        {cast.reactions?.recasts || 0}
+                      </span>
+                      <span className={styles.statItem}>
+                        <MessageCircle size={14} />
+                        {cast.reactions?.replies || 0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
+
+      {activeView === "spotlight" && (
         <section className={styles.spotlightSection}>
-          <h2 className={styles.sectionTitle}>✨ Spotlight</h2>
+          <h2 className={styles.sectionTitle}>Spotlight Auctions</h2>
           <div className={styles.spotlightGrid}>
-            {spotlights.map((spotlight) => (
+            {spotlights.map((spotlight, index) => (
               <div key={spotlight.id} className={styles.spotlightCard}>
-                <div className={styles.spotlightBadge}>PAID</div>
+                <div className={styles.spotlightTitle}>Auction Winner {index + 1}</div>
                 <div className={styles.spotlightContent}>
                   <div className={styles.spotlightAuthor}>
-                    {spotlight.cast.author.pfp?.url && (
+                    {spotlight.cast.author.pfp?.url ? (
                       <img
                         src={spotlight.cast.author.pfp.url}
                         alt={spotlight.cast.author.displayName}
-                        className={styles.avatar}
+                        className={styles.spotlightAvatar}
                       />
+                    ) : (
+                      <div className={styles.spotlightAvatarPlaceholder}>
+                        {spotlight.cast.author.displayName[0]?.toUpperCase() || "?"}
+                      </div>
                     )}
-                    <div>
-                      <div className={styles.authorName}>
-                        {spotlight.cast.author.displayName}
-                      </div>
-                      <div className={styles.authorHandle}>
-                        @{spotlight.cast.author.username}
-                      </div>
-                    </div>
+                    <div className={styles.spotlightAuthorName}>{spotlight.cast.author.username}</div>
                   </div>
-                  <p className={styles.castText}>{spotlight.cast.text}</p>
-                  <div className={styles.spotlightMeta}>
-                    <span>Bid: {spotlight.bidAmount} ETH</span>
-                    <span>Expires in {Math.ceil((spotlight.expiresAt - Date.now()) / (1000 * 60 * 60))}h</span>
-                  </div>
+                  <p className={styles.spotlightText}>{spotlight.cast.text}</p>
+                  <div className={styles.spotlightWon}>Won at ${(spotlight.bidAmount * 1000).toFixed(0)}</div>
                 </div>
               </div>
             ))}
           </div>
         </section>
       )}
-
-      {/* Top Casts Section */}
-      <section className={styles.topCastsSection}>
-        <h2 className={styles.sectionTitle}>🔥 Top Casts Today</h2>
-        <div className={styles.castsList}>
-          {rankedCasts.map((cast, index) => (
-            <div key={cast.hash} className={styles.castCard}>
-              <div className={styles.rankBadge}>#{index + 1}</div>
-              <div className={styles.castContent}>
-                <div className={styles.castHeader}>
-                  <div className={styles.authorInfo}>
-                    {cast.author.pfp?.url && (
-                      <img
-                        src={cast.author.pfp.url}
-                        alt={cast.author.displayName}
-                        className={styles.avatar}
-                      />
-                    )}
-                    <div>
-                      <div className={styles.authorName}>
-                        {cast.author.displayName}
-                      </div>
-                      <div className={styles.authorHandle}>
-                        @{cast.author.username}
-                      </div>
-                    </div>
-                  </div>
-                  <div className={styles.timeAgo}>{formatTime(cast.timestamp)}</div>
-                </div>
-                <p className={styles.castText}>{cast.text}</p>
-                {cast.embeds?.[0]?.url && (
-                  <div className={styles.embed}>
-                    <a href={cast.embeds[0].url} target="_blank" rel="noopener noreferrer">
-                      {cast.embeds[0].url}
-                    </a>
-                  </div>
-                )}
-                <div className={styles.castStats}>
-                  <span>❤️ {cast.reactions?.likes || 0}</span>
-                  <span>🔄 {cast.reactions?.recasts || 0}</span>
-                  <span>💬 {cast.reactions?.replies || 0}</span>
-                  <span className={styles.score}>Score: {Math.round(cast.score)}</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
