@@ -57,9 +57,12 @@ export default function HomeTab() {
     // Handle different response formats from Farcaster Kit
     // castsData could be an array directly or an object with casts/data property
     let casts: unknown[] = [];
+    if (!castsData) {
+      return [];
+    }
     if (Array.isArray(castsData)) {
       casts = castsData;
-    } else if (castsData && typeof castsData === 'object') {
+    } else if (typeof castsData === 'object' && castsData !== null) {
       const data = castsData as { casts?: unknown[]; data?: unknown[] };
       casts = data.casts || data.data || [];
     }
