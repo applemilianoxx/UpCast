@@ -167,6 +167,9 @@ async function fetchCastsWithPagination(
 export async function GET() {
   const startTime = Date.now();
   console.log("🔵 [API /casts/today] GET request received");
+  console.log("🔵 [API /casts/today] Node version:", process.version);
+  console.log("🔵 [API /casts/today] Fetch available:", typeof fetch !== 'undefined');
+  console.log("🔵 [API /casts/today] NEYNAR_API_KEY present:", !!NEYNAR_API_KEY);
   
   try {
     const todayStart = new Date();
