@@ -71,13 +71,21 @@ export default function ProfileTab() {
 
       try {
         setCastsLoading(true);
+        console.log("Fetching user casts for FID:", user.fid);
         const response = await fetch(`/api/casts/user?fid=${user.fid}`);
+        console.log("User casts response status:", response.status);
+        
         if (!response.ok) {
-          throw new Error("Failed to fetch user casts");
+          const errorData = await response.json();
+          console.error("API error:", errorData);
+          throw new Error(errorData.error || "Failed to fetch user casts");
         }
+        
         const data = await response.json();
-        setUserCasts(data.casts || []);
+        console.log("Received user casts data:", data);
         console.log('Fetched user casts:', data.casts?.length || 0, 'Total:', data.total);
+        
+        setUserCasts(data.casts || []);
       } catch (error) {
         console.error("Error fetching user casts:", error);
         setUserCasts([]);

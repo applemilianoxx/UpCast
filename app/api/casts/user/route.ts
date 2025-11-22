@@ -39,9 +39,13 @@ async function fetchUserCastsWithPagination(
   }
 
   const data = await response.json();
+  // Handle different response formats
+  const casts = Array.isArray(data) ? data : (data.casts || data.data || []);
+  const nextCursor = data.nextCursor || data.cursor || data.next?.cursor;
+  
   return {
-    casts: data.casts || data || [],
-    nextCursor: data.nextCursor || data.cursor,
+    casts,
+    nextCursor,
   };
 }
 

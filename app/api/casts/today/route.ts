@@ -36,9 +36,13 @@ async function fetchCastsWithPagination(
   }
 
   const data = await response.json();
+  // Handle different response formats
+  const casts = Array.isArray(data) ? data : (data.casts || data.data || []);
+  const nextCursor = data.nextCursor || data.cursor || data.next?.cursor;
+  
   return {
-    casts: data.casts || data || [],
-    nextCursor: data.nextCursor || data.cursor,
+    casts,
+    nextCursor,
   };
 }
 
@@ -59,7 +63,10 @@ export async function GET() {
     while (hasMore && pageCount < maxPages) {
       const { casts, nextCursor } = await fetchCastsWithPagination(cursor, 100);
       
+      console.log(`Fetched page ${pageCount + 1}: ${casts?.length || 0} casts, nextCursor: ${nextCursor}`);
+      
       if (!casts || casts.length === 0) {
+        console.log("No more casts to fetch");
         hasMore = false;
         break;
       }
@@ -153,8 +160,9 @@ export async function GET() {
     });
   } catch (error) {
     console.error("Error fetching today's casts:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to fetch today's casts" },
+      { error: "Failed to fetch today's casts", details: errorMessage },
       { status: 500 }
     );
   }
