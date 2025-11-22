@@ -50,13 +50,36 @@ export default function ProfileTab() {
     limit: 50,
   });
 
+  // Debug: Log casts data
+  if (typeof window !== 'undefined') {
+    console.log('User FID:', user?.fid);
+    console.log('User casts data:', userCastsData);
+    console.log('Casts loading:', castsLoading);
+  }
+
   // Process and rank user's casts
   const userCasts = useMemo(() => {
-    if (!userCastsData || !Array.isArray(userCastsData) || userCastsData.length === 0) {
+    // Handle different response formats
+    let casts: unknown[] = [];
+    if (Array.isArray(userCastsData)) {
+      casts = userCastsData;
+    } else if (userCastsData && typeof userCastsData === 'object') {
+      const dataObj = userCastsData as Record<string, unknown>;
+      if (Array.isArray(dataObj.casts)) {
+        casts = dataObj.casts;
+      } else if (Array.isArray(dataObj.data)) {
+        casts = dataObj.data;
+      }
+    }
+
+    if (!Array.isArray(casts) || casts.length === 0) {
+      console.log('No casts found or invalid format');
       return [];
     }
 
-    const casts = userCastsData.map((cast: Record<string, unknown>) => {
+    console.log('Processing casts:', casts.length);
+
+    const processedCasts = casts.map((cast: Record<string, unknown>) => {
       const author = cast.author as { fid?: number; username?: string; displayName?: string; pfp?: { url?: string } } | undefined;
       const reactions = cast.reactions as { likes?: number; recasts?: number; replies?: number } | undefined;
       
@@ -92,7 +115,9 @@ export default function ProfileTab() {
     });
 
     // Sort by score and return top 10
-    return casts.sort((a, b) => b.score - a.score).slice(0, 10);
+    const sorted = processedCasts.sort((a, b) => b.score - a.score).slice(0, 10);
+    console.log('Processed and sorted casts:', sorted.length);
+    return sorted;
   }, [userCastsData]);
 
   const [stats] = useState<UserStats>({
