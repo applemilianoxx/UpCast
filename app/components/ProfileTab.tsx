@@ -22,6 +22,13 @@ interface UserCast {
 
 export default function ProfileTab() {
   const { context } = useMiniKit();
+  // MiniKit user context is not fully typed, so we cast to a loose type for now
+  const user = context?.user as {
+    displayName?: string;
+    username?: string;
+    fid?: number;
+    pfp?: { url?: string };
+  } | undefined;
   const [stats] = useState<UserStats>({
     totalCasts: 42,
     topRankedCasts: 8,
@@ -53,26 +60,26 @@ export default function ProfileTab() {
     <div className={styles.container}>
       <div className={styles.header}>
         <div className={styles.avatarSection}>
-          {context?.user?.pfp?.url ? (
+          {user?.pfp?.url ? (
             <img
-              src={context.user.pfp.url}
-              alt={context.user.displayName || "User"}
+              src={user.pfp.url}
+              alt={user.displayName || "User"}
               className={styles.avatar}
             />
           ) : (
             <div className={styles.avatarPlaceholder}>
-              {context?.user?.displayName?.[0] || "U"}
+              {user?.displayName?.[0] || "U"}
             </div>
           )}
           <div className={styles.userInfo}>
             <h1 className={styles.userName}>
-              {context?.user?.displayName || "User"}
+              {user?.displayName || "User"}
             </h1>
             <p className={styles.userHandle}>
-              @{context?.user?.username || "username"}
+              @{user?.username || "username"}
             </p>
-            {context?.user?.fid && (
-              <p className={styles.fid}>FID: {context.user.fid}</p>
+            {user?.fid && (
+              <p className={styles.fid}>FID: {user.fid}</p>
             )}
           </div>
         </div>
