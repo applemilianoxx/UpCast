@@ -79,14 +79,15 @@ export default function ProfileTab() {
 
     console.log('Processing casts:', casts.length);
 
-    const processedCasts = casts.map((cast: Record<string, unknown>) => {
-      const author = cast.author as { fid?: number; username?: string; displayName?: string; pfp?: { url?: string } } | undefined;
-      const reactions = cast.reactions as { likes?: number; recasts?: number; replies?: number } | undefined;
+    const processedCasts = casts.map((cast) => {
+      const castData = cast as Record<string, unknown>;
+      const author = castData.author as { fid?: number; username?: string; displayName?: string; pfp?: { url?: string } } | undefined;
+      const reactions = castData.reactions as { likes?: number; recasts?: number; replies?: number } | undefined;
       
-      const likes = reactions?.likes || (cast.likes as number | undefined) || 0;
-      const recasts = reactions?.recasts || (cast.recasts as number | undefined) || 0;
-      const replies = reactions?.replies || (cast.replies as number | undefined) || 0;
-      const timestamp = (cast.timestamp as number | undefined) || (cast.publishedAt as number | undefined) || Date.now();
+      const likes = reactions?.likes || (castData.likes as number | undefined) || 0;
+      const recasts = reactions?.recasts || (castData.recasts as number | undefined) || 0;
+      const replies = reactions?.replies || (castData.replies as number | undefined) || 0;
+      const timestamp = (castData.timestamp as number | undefined) || (castData.publishedAt as number | undefined) || Date.now();
       
       // Calculate score similar to HomeTab
       const age = Date.now() - timestamp;
@@ -96,13 +97,13 @@ export default function ProfileTab() {
       const score = engagement * (1 + recencyBonus * 0.5);
 
       return {
-        hash: (cast.hash as string | undefined) || (cast.id as string | undefined) || "",
-        text: (cast.text as string | undefined) || (cast.content as string | undefined) || "",
+        hash: (castData.hash as string | undefined) || (castData.id as string | undefined) || "",
+        text: (castData.text as string | undefined) || (castData.content as string | undefined) || "",
         author: {
-          fid: author?.fid || (cast.fid as number | undefined) || 0,
-          username: author?.username || (cast.username as string | undefined) || "unknown",
-          displayName: author?.displayName || (cast.displayName as string | undefined) || "Unknown",
-          pfp: { url: author?.pfp?.url || ((cast.pfp as { url?: string } | undefined)?.url) || "" },
+          fid: author?.fid || (castData.fid as number | undefined) || 0,
+          username: author?.username || (castData.username as string | undefined) || "unknown",
+          displayName: author?.displayName || (castData.displayName as string | undefined) || "Unknown",
+          pfp: { url: author?.pfp?.url || ((castData.pfp as { url?: string } | undefined)?.url) || "" },
         },
         reactions: {
           likes,
