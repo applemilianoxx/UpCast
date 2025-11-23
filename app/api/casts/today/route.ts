@@ -51,12 +51,13 @@ async function fetchCastsWithPagination(
       let response;
       try {
         response = await fetch(url.toString(), {
+          method: 'GET',
           headers: {
             'Accept': 'application/json',
-            'api_key': NEYNAR_API_KEY,
+            'x-api-key': NEYNAR_API_KEY,
+            'Content-Type': 'application/json',
           },
           signal: controller.signal,
-          cache: 'no-store',
         });
         clearTimeout(timeoutId);
         const fetchTime = Date.now() - fetchStart;
