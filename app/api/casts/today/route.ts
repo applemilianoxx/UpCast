@@ -25,8 +25,7 @@ interface Cast {
 
 async function fetchCastsWithPagination(
   cursor: string | undefined,
-  limit: number,
-  todayDate: string
+  limit: number
 ): Promise<{ casts: unknown[]; nextCursor?: string }> {
   // Try Neynar API first, fallback to Farcaster Kit
   const useNeynar = !!NEYNAR_API_KEY;
@@ -264,9 +263,7 @@ export async function GET() {
       const pageStartTime = Date.now();
       console.log(`🔵 [API /casts/today] Fetching page ${pageCount + 1} with cursor: ${cursor}`);
       
-      // Format today's date as YYYY-MM-DD for the 'after:' operator
-      const todayDate = new Date(todayStartTimestamp).toISOString().split('T')[0];
-      const { casts, nextCursor } = await fetchCastsWithPagination(cursor, 100, todayDate);
+      const { casts, nextCursor } = await fetchCastsWithPagination(cursor, 10);
       const pageTime = Date.now() - pageStartTime;
       
       console.log(`🔵 [API /casts/today] Page ${pageCount + 1} fetched in ${pageTime}ms:`, {
