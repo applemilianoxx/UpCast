@@ -27,7 +27,7 @@ async function fetchUserCastsWithPagination(
   fid: number,
   cursor?: string,
   limit: number = 100
-): Promise<{ casts: unknown[]; nextCursor?: string }> {
+): Promise<{ casts: unknown[]; nextCursor?: string; rateLimited?: boolean }> {
   // Try Neynar API first, fallback to Farcaster Kit
   const useNeynar = !!NEYNAR_API_KEY;
   
@@ -60,8 +60,9 @@ async function fetchUserCastsWithPagination(
           return { casts: [], nextCursor: undefined };
         }
         if (response.status === 429) {
-          console.warn(`🔵 [fetchUserCasts] ⚠️ Rate limited for FID ${fid}`);
-          return { casts: [], nextCursor: undefined };
+          console.warn(`🔵 [fetchUserCasts] ⚠️ Rate limited for FID ${fid} - stopping pagination`);
+          // Return empty with special marker to stop pagination
+          return { casts: [], nextCursor: undefined, rateLimited: true };
         }
         const errorText = await response.text().catch(() => 'Could not read error text');
         throw new Error(`Neynar API error: ${response.status} ${errorText}`);
@@ -131,18 +132,33 @@ export async function GET(request: NextRequest) {
     let cursor: string | undefined;
     let hasMore = true;
     let pageCount = 0;
-    const maxPages = 50; // Fetch up to 50 pages (5000 casts max)
+    const maxPages = 5; // Reduced to 5 pages to avoid rate limits (we only need top 10 anyway)
+    let rateLimited = false;
 
-    // Fetch all user casts with pagination
-    while (hasMore && pageCount < maxPages) {
-      const { casts, nextCursor } = await fetchUserCastsWithPagination(fid, cursor, 100);
+    // Fetch user casts with pagination (limited to avoid rate limits)
+    while (hasMore && pageCount < maxPages && !rateLimited) {
+      const result = await fetchUserCastsWithPagination(fid, cursor, 25); // Reduced limit
+      const { casts, nextCursor, rateLimited: isRateLimited } = result;
       
-      console.log(`Fetched page ${pageCount + 1} for FID ${fid}: ${casts?.length || 0} casts, nextCursor: ${nextCursor}`);
+      // If rate limited, stop immediately
+      if (isRateLimited) {
+        console.warn(`🔵 [API /casts/user] ⚠️ Rate limited on page ${pageCount + 1} for FID ${fid} - stopping pagination`);
+        rateLimited = true;
+        break;
+      }
       
+      console.log(`🔵 [API /casts/user] Fetched page ${pageCount + 1} for FID ${fid}: ${casts?.length || 0} casts, nextCursor: ${nextCursor}`);
+      
+      // If no casts, stop pagination
       if (!casts || casts.length === 0) {
-        console.log("No more casts to fetch");
+        console.log("🔵 [API /casts/user] No more casts to fetch");
         hasMore = false;
         break;
+      }
+      
+      // Add delay between pagination requests to avoid rate limits
+      if (nextCursor && pageCount < maxPages - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000)); // 2 seconds between pages
       }
 
       // Process casts
@@ -207,11 +223,19 @@ export async function GET(request: NextRequest) {
     // Sort by score (engagement + recency)
     const sortedCasts = allCasts.sort((a, b) => (b.score || 0) - (a.score || 0));
 
-    // Return top 10 for profile page
-    return NextResponse.json({
-      casts: sortedCasts.slice(0, 10),
-      total: allCasts.length,
-    });
+    // Return top 10 for profile page with cache headers
+    // Cache for 5 minutes (300 seconds) - user casts don't change that frequently
+    return NextResponse.json(
+      {
+        casts: sortedCasts.slice(0, 10),
+        total: allCasts.length,
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        },
+      }
+    );
   } catch (error) {
     console.error("🔵 [API /casts/user] ❌ Error fetching user casts:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
