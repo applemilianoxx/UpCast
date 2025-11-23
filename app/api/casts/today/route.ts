@@ -129,7 +129,7 @@ async function fetchCastsFromUser(
 
 async function fetchCastsWithPagination(
   cursor: string | undefined,
-  limit: number
+  _limit: number // Not used in this implementation - we fetch fixed 25 per user
 ): Promise<{ casts: unknown[]; nextCursor?: string }> {
   // Get the best available fetch implementation
   const safeFetch = await getFetch();
