@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 // Using Neynar API - more reliable than Farcaster Kit
+// API key should be set in Vercel environment variables as NEYNAR_API_KEY
 const NEYNAR_API = "https://api.neynar.com/v2";
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY || ""; // Get free API key from https://neynar.com
 
