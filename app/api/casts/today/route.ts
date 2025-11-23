@@ -40,7 +40,8 @@ async function fetchCastsWithPagination(
       // Docs: https://docs.neynar.com/reference/fetch-trending-feed
       // This endpoint already sorts by engagement and supports 24h time window
       // Limit is only 10 per request, so we'll need to paginate
-      const url = new URL(`${NEYNAR_API}/v2/farcaster/feed/trending/`);
+      // Note: NEYNAR_API already includes /v2, so we don't add it again
+      const url = new URL(`${NEYNAR_API}/farcaster/feed/trending/`);
       
       url.searchParams.set("time_window", "24h"); // Get trending casts from last 24 hours
       url.searchParams.set("limit", Math.min(limit, 10).toString()); // Max 10 per trending endpoint
