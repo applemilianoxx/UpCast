@@ -1,52 +1,89 @@
 import { NextResponse } from "next/server";
 
+const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY || "";
+
 export async function GET() {
+  const results: Record<string, unknown> = {
+    timestamp: new Date().toISOString(),
+    nodeVersion: process.version,
+    fetchAvailable: typeof fetch !== 'undefined',
+    neynarApiKeyPresent: !!NEYNAR_API_KEY,
+    neynarApiKeyLength: NEYNAR_API_KEY.length,
+  };
+
   try {
-    console.log("🧪 [test-fetch] Testing fetch capability...");
-    
-    // Test 1: Simple fetch to a known working endpoint
-    try {
-      console.log("🧪 [test-fetch] Test 1: Fetching from httpbin.org...");
-      const testUrl = "https://httpbin.org/json";
-      const response = await fetch(testUrl, {
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log("🧪 [test-fetch] ✅ Test 1 passed - httpbin works");
-        return NextResponse.json({
-          success: true,
-          test1: "httpbin.org - PASSED",
-          data: data,
-        });
-      } else {
-        console.log(`🧪 [test-fetch] ❌ Test 1 failed - httpbin returned ${response.status}`);
-        return NextResponse.json({
-          success: false,
-          test1: `httpbin.org - FAILED (${response.status})`,
-        }, { status: 500 });
-      }
-    } catch (error) {
-      console.error("🧪 [test-fetch] ❌ Test 1 error:", error);
-      return NextResponse.json({
-        success: false,
-        test1: "httpbin.org - ERROR",
-        error: error instanceof Error ? {
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
-        } : String(error),
-      }, { status: 500 });
-    }
+    // Test 1: Basic fetch to Google
+    console.log("🧪 [test-fetch] Test 1: Basic fetch to Google");
+    const googleStart = Date.now();
+    const googleResponse = await fetch("https://www.google.com", {
+      method: "GET",
+      headers: {
+        "User-Agent": "UPLYST-Test/1.0",
+      },
+    });
+    results.googleTest = {
+      success: true,
+      status: googleResponse.status,
+      timeMs: Date.now() - googleStart,
+    };
   } catch (error) {
-    console.error("🧪 [test-fetch] ❌ Overall error:", error);
-    return NextResponse.json({
+    results.googleTest = {
       success: false,
       error: error instanceof Error ? error.message : String(error),
-    }, { status: 500 });
+      type: error instanceof Error ? error.name : typeof error,
+    };
   }
+
+  try {
+    // Test 2: Neynar API fetch
+    console.log("🧪 [test-fetch] Test 2: Neynar API fetch");
+    const neynarStart = Date.now();
+    const neynarUrl = new URL("https://api.neynar.com/v2/farcaster/feed/");
+    neynarUrl.searchParams.set("feed_type", "filter");
+    neynarUrl.searchParams.set("filter_type", "global_trending");
+    neynarUrl.searchParams.set("limit", "10");
+    
+    console.log(`🧪 [test-fetch] Neynar URL: ${neynarUrl.toString()}`);
+    
+    const neynarResponse = await fetch(neynarUrl.toString(), {
+      method: "GET",
+      headers: {
+        "Accept": "application/json",
+        "x-api-key": NEYNAR_API_KEY,
+        "Content-Type": "application/json",
+      },
+    });
+    
+    const neynarTime = Date.now() - neynarStart;
+    const neynarData = await neynarResponse.json().catch(() => ({ error: "Failed to parse JSON" }));
+    
+    results.neynarTest = {
+      success: neynarResponse.ok,
+      status: neynarResponse.status,
+      statusText: neynarResponse.statusText,
+      timeMs: neynarTime,
+      hasCasts: Array.isArray(neynarData.casts),
+      castsCount: Array.isArray(neynarData.casts) ? neynarData.casts.length : 0,
+      responseKeys: Object.keys(neynarData),
+    };
+  } catch (error) {
+    const errorDetails = error instanceof Error ? {
+      message: error.message,
+      name: error.name,
+      stack: error.stack?.split('\n').slice(0, 5), // First 5 lines of stack
+    } : {
+      error: String(error),
+      type: typeof error,
+    };
+    
+    results.neynarTest = {
+      success: false,
+      ...errorDetails,
+    };
+  }
+
+  return NextResponse.json(results, {
+    status: results.neynarTest?.success === false && results.googleTest?.success === false ? 500 : 200,
+  });
 }
 
