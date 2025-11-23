@@ -12,8 +12,9 @@ async function getFetch(): Promise<typeof fetch> {
     const nodeFetch = await import('node-fetch');
     console.log("🔵 [API] Using node-fetch for serverless compatibility");
     // node-fetch v2 exports default, v3 exports named
-    const fetchFn = (nodeFetch.default || nodeFetch) as typeof fetch;
-    return fetchFn as unknown as typeof fetch;
+    // Use double cast to handle type incompatibility
+    const fetchFn = (nodeFetch.default || nodeFetch) as unknown as typeof fetch;
+    return fetchFn;
   } catch {
     console.log("🔵 [API] node-fetch not available, trying undici...");
   }
