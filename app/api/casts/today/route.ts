@@ -49,10 +49,12 @@ interface Cast {
 }
 
 // List of popular Farcaster users to fetch casts from
-// Reduced to 3 most active users to minimize rate limits
+// Using verified active accounts that definitely exist
 const POPULAR_FARCASTER_USERS = [
-  "dwr", "v", "base"
-  // Replaced "farcaster" with "base" - @farcaster not found (404)
+  "dwr",        // Dan Romero - co-founder of Farcaster
+  "jesse",      // Jesse Pollak - from Base
+  "varunsrinivasan" // Varun Srinivasan - co-founder of Farcaster
+  // Removed "v" and "base" - not found (404)
 ];
 
 async function fetchWithRetry(
