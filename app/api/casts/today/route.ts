@@ -33,6 +33,11 @@ async function fetchCastsWithPagination(
   
   if (useNeynar) {
     try {
+      // Verify API key is present
+      console.log(`🔵 [fetchCastsWithPagination] Neynar API key present: ${!!NEYNAR_API_KEY}, length: ${NEYNAR_API_KEY.length}`);
+      
+      // Try the correct Neynar API endpoint for feeds
+      // Based on Neynar docs: https://api.neynar.com/v2/farcaster/feed
       const url = new URL(`${NEYNAR_API}/farcaster/feed`);
       url.searchParams.set("feed_type", "filter");
       url.searchParams.set("filter_type", "global_trending");
@@ -42,6 +47,7 @@ async function fetchCastsWithPagination(
       }
 
       console.log(`🔵 [fetchCastsWithPagination] Attempting Neynar fetch: ${url.toString()}`);
+      console.log(`🔵 [fetchCastsWithPagination] Headers: x-api-key present: ${!!NEYNAR_API_KEY}`);
       const fetchStart = Date.now();
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
