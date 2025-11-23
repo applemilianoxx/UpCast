@@ -25,7 +25,8 @@ interface Cast {
 
 async function fetchCastsWithPagination(
   cursor: string | undefined,
-  limit: number
+  limit: number,
+  todayDate: string
 ): Promise<{ casts: unknown[]; nextCursor?: string }> {
   // Try Neynar API first, fallback to Farcaster Kit
   const useNeynar = !!NEYNAR_API_KEY;
@@ -38,13 +39,13 @@ async function fetchCastsWithPagination(
       
       // Use /v2/farcaster/cast/search endpoint (10 credits, available on Beginner plan)
       // Docs: https://docs.neynar.com/reference/search-casts
-      // Note: The endpoint requires a trailing slash according to docs
+      // Use 'after:' operator to filter casts from today, and 'algorithmic' sort for engagement ranking
       const url = new URL(`${NEYNAR_API}/farcaster/cast/search/`); // Note: trailing slash
       
-      // Try simple query first - just get recent casts, we'll filter by date in code
-      // This avoids potential issues with the 'after:' operator
-      url.searchParams.set("q", "*"); // Search for all casts
-      url.searchParams.set("sort_type", "algorithmic"); // Sort by engagement
+      // Search for all casts after today's date using the 'after:' operator
+      // Format: after:YYYY-MM-DD (e.g., after:2025-11-23)
+      url.searchParams.set("q", `* after:${todayDate}`); // Get all casts from today onwards
+      url.searchParams.set("sort_type", "algorithmic"); // Sort by engagement (likes, recasts, replies) and time
       url.searchParams.set("limit", Math.min(limit, 100).toString()); // Max 100 per Neynar API
       if (cursor) {
         url.searchParams.set("cursor", cursor);
@@ -265,7 +266,9 @@ export async function GET() {
       const pageStartTime = Date.now();
       console.log(`🔵 [API /casts/today] Fetching page ${pageCount + 1} with cursor: ${cursor}`);
       
-      const { casts, nextCursor } = await fetchCastsWithPagination(cursor, 100);
+      // Format today's date as YYYY-MM-DD for the 'after:' operator
+      const todayDate = new Date(todayStartTimestamp).toISOString().split('T')[0];
+      const { casts, nextCursor } = await fetchCastsWithPagination(cursor, 100, todayDate);
       const pageTime = Date.now() - pageStartTime;
       
       console.log(`🔵 [API /casts/today] Page ${pageCount + 1} fetched in ${pageTime}ms:`, {
