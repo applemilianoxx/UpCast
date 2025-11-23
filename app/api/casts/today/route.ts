@@ -68,21 +68,21 @@ async function fetchCastsWithPagination(
       // Verify API key is present
       console.log(`🔵 [fetchCastsWithPagination] Neynar API key present: ${!!NEYNAR_API_KEY}, length: ${NEYNAR_API_KEY.length}`);
       
-      // Try trending feed endpoint first (simpler, more reliable)
-      // Docs: https://docs.neynar.com/reference/fetch-trending-feed
-      // This endpoint already sorts by engagement and supports 24h time window
-      // Limit is only 10 per request, so we'll need to paginate
+      // Use cast search endpoint (available on free tier)
+      // The trending feed endpoint requires a paid plan (402 Payment Required)
+      // Docs: https://docs.neynar.com/reference/search-casts
       // Note: NEYNAR_API already includes /v2, so we don't add it again
-      const url = new URL(`${NEYNAR_API}/farcaster/feed/trending/`);
+      const url = new URL(`${NEYNAR_API}/farcaster/cast/search`);
       
-      url.searchParams.set("time_window", "24h"); // Get trending casts from last 24 hours
-      url.searchParams.set("limit", Math.min(limit, 10).toString()); // Max 10 per trending endpoint
+      // Search for all casts (wildcard) and filter by recent activity
+      url.searchParams.set("q", "*"); // Search for all casts
+      url.searchParams.set("limit", Math.min(limit, 100).toString()); // Max 100 per search endpoint
       if (cursor) {
         url.searchParams.set("cursor", cursor);
       }
 
       const finalUrl = url.toString();
-      console.log(`🔵 [fetchCastsWithPagination] Attempting Neynar cast search fetch: ${finalUrl}`);
+      console.log(`🔵 [fetchCastsWithPagination] Attempting Neynar cast search (free tier): ${finalUrl}`);
       console.log(`🔵 [fetchCastsWithPagination] URL components:`, {
         protocol: url.protocol,
         host: url.host,
@@ -203,11 +203,12 @@ async function fetchCastsWithPagination(
       }
       
           const data = await response.json();
-          // Trending feed endpoint returns { casts: [...], next: { cursor: "..." } }
-          const casts = data.casts || [];
-          const nextCursor = data.next?.cursor;
+          // Cast search endpoint returns { result: { casts: [...], next: { cursor: "..." } } }
+          // or { casts: [...], next: { cursor: "..." } } depending on API version
+          const casts = data.result?.casts || data.casts || [];
+          const nextCursor = data.result?.next?.cursor || data.next?.cursor;
 
-          console.log(`🔵 [fetchCastsWithPagination] ✅ Neynar trending feed success:`, { castsCount: casts.length, nextCursor });
+          console.log(`🔵 [fetchCastsWithPagination] ✅ Neynar cast search success:`, { castsCount: casts.length, nextCursor });
       
       return { casts, nextCursor };
     } catch (error) {
