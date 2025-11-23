@@ -37,7 +37,7 @@ async function fetchUserCastsWithPagination(
       // Docs: https://docs.neynar.com/reference/fetch-user-casts
       const url = new URL(`${NEYNAR_API}/farcaster/feed/user/casts`);
       url.searchParams.set("fid", fid.toString());
-      url.searchParams.set("limit", Math.min(limit, 25).toString()); // Max 25 per request
+      url.searchParams.set("limit", Math.min(limit, 25).toString()); // Max 25 per request (API limit)
       if (cursor) {
         url.searchParams.set("cursor", cursor);
       }
@@ -95,17 +95,22 @@ async function fetchUserCastsWithPagination(
 }
 
 function calculateScore(cast: Cast): number {
+  // Calculate score for all-time top casts ranking
   const likes = cast.reactions?.likes || 0;
   const recasts = cast.reactions?.recasts || 0;
   const replies = cast.reactions?.replies || 0;
-  const timestamp = cast.timestamp || Date.now();
   
+  // Pure engagement score (weighted: recasts worth more, replies slightly more than likes)
+  const engagement = likes * 1 + recasts * 2 + replies * 1.5;
+  
+  // For all-time ranking, we focus on engagement
+  // Small recency bonus for very recent high-engagement casts
+  const timestamp = cast.timestamp || Date.now();
   const age = Date.now() - timestamp;
   const hoursOld = age / (1000 * 60 * 60);
-  const engagement = likes * 1 + recasts * 2 + replies * 1.5;
-  const recencyBonus = Math.max(0, 24 - hoursOld) / 24;
+  const recencyBonus = hoursOld < 24 ? Math.max(0, (24 - hoursOld) / 24) * 0.2 : 0; // Reduced recency weight
   
-  return engagement * (1 + recencyBonus * 0.5);
+  return engagement * (1 + recencyBonus);
 }
 
 export async function GET(request: NextRequest) {
@@ -132,7 +137,7 @@ export async function GET(request: NextRequest) {
     let cursor: string | undefined;
     let hasMore = true;
     let pageCount = 0;
-    const maxPages = 5; // Reduced to 5 pages to avoid rate limits (we only need top 10 anyway)
+    const maxPages = 20; // Fetch up to 20 pages (500 casts) to get all-time top casts
     let rateLimited = false;
 
     // Fetch user casts with pagination (limited to avoid rate limits)
@@ -157,8 +162,9 @@ export async function GET(request: NextRequest) {
       }
       
       // Add delay between pagination requests to avoid rate limits
+      // Since we're only fetching one user, we can use shorter delays
       if (nextCursor && pageCount < maxPages - 1) {
-        await new Promise(resolve => setTimeout(resolve, 2000)); // 2 seconds between pages
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second between pages
       }
 
       // Process casts
@@ -220,10 +226,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Sort by score (engagement + recency)
+    // Sort by score (engagement-based ranking for all-time top casts)
     const sortedCasts = allCasts.sort((a, b) => (b.score || 0) - (a.score || 0));
 
-    // Return top 10 for profile page with cache headers
+    // Return top 10 all-time casts for profile page with cache headers
     // Cache for 5 minutes (300 seconds) - user casts don't change that frequently
     return NextResponse.json(
       {
