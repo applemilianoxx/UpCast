@@ -82,8 +82,13 @@ export async function GET() {
     };
   }
 
+  // Determine status code based on test results
+  const neynarSuccess = (results.neynarTest as { success?: boolean })?.success;
+  const googleSuccess = (results.googleTest as { success?: boolean })?.success;
+  const statusCode = neynarSuccess === false && googleSuccess === false ? 500 : 200;
+
   return NextResponse.json(results, {
-    status: results.neynarTest?.success === false && results.googleTest?.success === false ? 500 : 200,
+    status: statusCode,
   });
 }
 
