@@ -51,8 +51,8 @@ interface Cast {
 // List of popular Farcaster users to fetch casts from
 // Reduced to 3 most active users to minimize rate limits
 const POPULAR_FARCASTER_USERS = [
-  "dwr", "v", "farcaster"
-  // Reduced to 3 users to minimize API calls and avoid rate limits
+  "dwr", "v", "base"
+  // Replaced "farcaster" with "base" - @farcaster not found (404)
 ];
 
 async function fetchWithRetry(
