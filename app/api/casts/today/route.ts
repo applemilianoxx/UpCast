@@ -40,7 +40,6 @@ async function fetchCastsWithPagination(
       // Use /v2/farcaster/cast/search endpoint (10 credits, available on Beginner plan)
       // Docs: https://docs.neynar.com/reference/search-casts
       // Note: The endpoint requires a trailing slash according to docs
-      const todayDate = new Date(todayStartTimestamp).toISOString().split('T')[0]; // YYYY-MM-DD
       const url = new URL(`${NEYNAR_API}/farcaster/cast/search/`); // Note: trailing slash
       
       // Try simple query first - just get recent casts, we'll filter by date in code
