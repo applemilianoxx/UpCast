@@ -71,7 +71,13 @@ async function fetchCastsWithPagination(
       
       let response;
       try {
-        response = await fetch(url.toString(), {
+        // Use native fetch (available in Node.js 22)
+        // Add explicit error handling for network issues
+        const fetchUrl = url.toString();
+        console.log(`🔵 [fetchCastsWithPagination] Fetch URL: ${fetchUrl}`);
+        console.log(`🔵 [fetchCastsWithPagination] API Key first 4 chars: ${NEYNAR_API_KEY.substring(0, 4)}...`);
+        
+        response = await fetch(fetchUrl, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
@@ -87,15 +93,33 @@ async function fetchCastsWithPagination(
         clearTimeout(timeoutId);
         const fetchTime = Date.now() - fetchStart;
         const error = fetchError instanceof Error ? fetchError : new Error(String(fetchError));
-        const errorDetails = {
+        
+        // Extract more detailed error information
+        const errorDetails: Record<string, unknown> = {
           message: error.message,
           name: error.name,
-          stack: error.stack,
-          cause: (error as Error & { cause?: unknown }).cause,
+          stack: error.stack?.split('\n').slice(0, 10), // First 10 lines
           type: typeof fetchError,
-          toString: String(fetchError),
         };
-        console.error(`🔵 [fetchCastsWithPagination] ❌ Neynar fetch failed after ${fetchTime}ms:`, errorDetails);
+        
+        // Check for specific error types
+        if (error.name === 'TypeError' && error.message.includes('fetch failed')) {
+          errorDetails.errorType = 'NetworkError';
+          errorDetails.suggestion = 'This is likely a DNS or network connectivity issue from Vercel to Neynar API';
+        }
+        
+        // Try to extract cause if available
+        if (error instanceof Error) {
+          const cause = (error as Error & { cause?: unknown }).cause;
+          if (cause) {
+            errorDetails.cause = cause instanceof Error ? {
+              message: cause.message,
+              name: cause.name,
+            } : String(cause);
+          }
+        }
+        
+        console.error(`🔵 [fetchCastsWithPagination] ❌ Neynar fetch failed after ${fetchTime}ms:`, JSON.stringify(errorDetails, null, 2));
         throw new Error(`Neynar fetch failed: ${errorDetails.message} (${errorDetails.name})`, { cause: fetchError });
       }
       
