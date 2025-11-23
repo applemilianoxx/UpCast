@@ -55,9 +55,13 @@ async function fetchCastsWithPagination(
   // Get the best available fetch implementation
   const safeFetch = await getFetch();
   
-  // Try Neynar API first, fallback to Farcaster Kit
+  // Only use Neynar API (Farcaster Kit has SSL certificate issues)
   const useNeynar = !!NEYNAR_API_KEY;
-  console.log(`🔵 [fetchCastsWithPagination] useNeynar: ${useNeynar}, hasKey: ${!!NEYNAR_API_KEY}`);
+  console.log(`🔵 [fetchCastsWithPagination] useNeynar: ${useNeynar}, hasKey: ${!!NEYNAR_API_KEY}, keyLength: ${NEYNAR_API_KEY?.length || 0}`);
+  
+  if (!useNeynar) {
+    throw new Error('NEYNAR_API_KEY environment variable is not set. Please configure it in Vercel environment variables.');
+  }
   
   if (useNeynar) {
     try {
@@ -207,88 +211,19 @@ async function fetchCastsWithPagination(
       
       return { casts, nextCursor };
     } catch (error) {
-      console.error(`🔵 [fetchCastsWithPagination] ❌ Neynar API failed, trying Farcaster Kit:`, {
+      console.error(`🔵 [fetchCastsWithPagination] ❌ Neynar API failed:`, {
         error: error instanceof Error ? error.message : String(error),
         name: error instanceof Error ? error.name : 'Unknown',
-        stack: error instanceof Error ? error.stack : undefined,
+        stack: error instanceof Error ? error.stack?.split('\n').slice(0, 10) : undefined,
       });
+      // Don't fallback to Farcaster Kit - it has SSL certificate issues
+      // Re-throw the Neynar error so we can see what's wrong
+      throw error;
     }
   }
   
-  // Fallback to Farcaster Kit API - try with simpler approach
-  const urlString = `https://api.farcasterkit.com/casts/latest?limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`;
-  
-  try {
-    console.log(`🔵 [fetchCastsWithPagination] Attempting Farcaster Kit fetch: ${urlString}`);
-    console.log(`🔵 [fetchCastsWithPagination] Fetch function type: ${typeof fetch}`);
-    console.log(`🔵 [fetchCastsWithPagination] URL object test:`, new URL(urlString).toString());
-    
-    const fetchStart = Date.now();
-    
-    let response;
-    try {
-      // Try with minimal options - no AbortController to avoid potential issues
-      console.log(`🔵 [fetchCastsWithPagination] Making Farcaster Kit fetch call`);
-      response = await safeFetch(urlString, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
-      const fetchTime = Date.now() - fetchStart;
-      console.log(`🔵 [fetchCastsWithPagination] ✅ Farcaster Kit fetch completed in ${fetchTime}ms, status: ${response.status}`);
-    } catch (fetchError: unknown) {
-      const fetchTime = Date.now() - fetchStart;
-      const error = fetchError instanceof Error ? fetchError : new Error(String(fetchError));
-      const errorDetails = {
-        error: error.message,
-        name: error.name,
-        cause: (error as Error & { cause?: unknown }).cause,
-        stack: error.stack,
-        toString: String(fetchError),
-        type: typeof fetchError,
-        constructor: error.constructor?.name,
-      };
-      console.error(`🔵 [fetchCastsWithPagination] ❌ Farcaster Kit fetch failed after ${fetchTime}ms:`, errorDetails);
-      // Don't try to JSON.stringify errorDetails as it may contain circular references
-      
-      // Re-throw with more context
-      const enhancedError = new Error(`Fetch failed: ${errorDetails.error} (${errorDetails.name})`);
-      (enhancedError as Error & { originalError?: unknown }).originalError = fetchError;
-      throw enhancedError;
-    }
-    
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Could not read error text');
-      console.error(`🔵 [fetchCastsWithPagination] ❌ Farcaster Kit API error ${response.status}:`, errorText);
-      throw new Error(`Failed to fetch casts: ${response.status} ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    const casts = Array.isArray(data) ? data : (data.casts || data.data || []);
-    const nextCursor = data.nextCursor || data.cursor || data.next?.cursor;
-    
-    console.log(`🔵 [fetchCastsWithPagination] ✅ Farcaster Kit success:`, { castsCount: casts.length, nextCursor });
-    
-    return { casts, nextCursor };
-  } catch (error) {
-    console.error(`🔵 [fetchCastsWithPagination] ❌ Farcaster Kit failed:`, {
-      error: error instanceof Error ? error.message : String(error),
-      name: error instanceof Error ? error.name : 'Unknown',
-      cause: error instanceof Error ? (error as Error & { cause?: unknown }).cause : undefined,
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-    
-    if (error instanceof Error) {
-      if (error.name === 'AbortError') {
-        throw new Error('Request timeout');
-      }
-      if (error.message.includes('fetch failed') || error.name === 'TypeError') {
-        throw new Error(`Network error: ${error.message} (${error.name})`);
-      }
-    }
-    throw error;
-  }
+  // This should never be reached due to the check at the beginning
+  throw new Error('Neynar API key not configured. Please set NEYNAR_API_KEY environment variable.');
 }
 
 export async function GET() {
