@@ -8,7 +8,6 @@ const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY || ""; // Get free API key fro
 // Helper to get the best available fetch (undici if available, otherwise native)
 async function getFetch(): Promise<typeof fetch> {
   try {
-    // @ts-expect-error - undici might not have types
     const { fetch: undiciFetch } = await import('undici');
     console.log("🔵 [API] Using undici fetch for better serverless compatibility");
     return undiciFetch as typeof fetch;
