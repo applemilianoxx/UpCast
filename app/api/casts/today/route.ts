@@ -37,16 +37,14 @@ async function fetchCastsWithPagination(
       // Verify API key is present
       console.log(`🔵 [fetchCastsWithPagination] Neynar API key present: ${!!NEYNAR_API_KEY}, length: ${NEYNAR_API_KEY.length}`);
       
-      // Use /v2/farcaster/cast/search endpoint (10 credits, available on Beginner plan)
-      // Docs: https://docs.neynar.com/reference/search-casts
-      // Use 'after:' operator to filter casts from today, and 'algorithmic' sort for engagement ranking
-      const url = new URL(`${NEYNAR_API}/farcaster/cast/search/`); // Note: trailing slash
+      // Try trending feed endpoint first (simpler, more reliable)
+      // Docs: https://docs.neynar.com/reference/fetch-trending-feed
+      // This endpoint already sorts by engagement and supports 24h time window
+      // Limit is only 10 per request, so we'll need to paginate
+      const url = new URL(`${NEYNAR_API}/v2/farcaster/feed/trending/`);
       
-      // Search for all casts after today's date using the 'after:' operator
-      // Format: after:YYYY-MM-DD (e.g., after:2025-11-23)
-      url.searchParams.set("q", `* after:${todayDate}`); // Get all casts from today onwards
-      url.searchParams.set("sort_type", "algorithmic"); // Sort by engagement (likes, recasts, replies) and time
-      url.searchParams.set("limit", Math.min(limit, 100).toString()); // Max 100 per Neynar API
+      url.searchParams.set("time_window", "24h"); // Get trending casts from last 24 hours
+      url.searchParams.set("limit", Math.min(limit, 10).toString()); // Max 10 per trending endpoint
       if (cursor) {
         url.searchParams.set("cursor", cursor);
       }
@@ -128,12 +126,12 @@ async function fetchCastsWithPagination(
         throw new Error(`Neynar API error: ${response.status} ${response.statusText}`);
       }
       
-      const data = await response.json();
-      // Search endpoint returns { result: { casts: [...], next: { cursor: "..." } } } or { casts: [...] }
-      const casts = data.result?.casts || data.casts || [];
-      const nextCursor = data.result?.next?.cursor || data.next?.cursor;
+          const data = await response.json();
+          // Trending feed endpoint returns { casts: [...], next: { cursor: "..." } }
+          const casts = data.casts || [];
+          const nextCursor = data.next?.cursor;
 
-      console.log(`🔵 [fetchCastsWithPagination] ✅ Neynar cast search success:`, { castsCount: casts.length, nextCursor });
+          console.log(`🔵 [fetchCastsWithPagination] ✅ Neynar trending feed success:`, { castsCount: casts.length, nextCursor });
       
       return { casts, nextCursor };
     } catch (error) {
@@ -258,7 +256,7 @@ export async function GET() {
     let cursor: string | undefined;
     let hasMore = true;
     let pageCount = 0;
-    const maxPages = 20; // Limit to prevent infinite loops
+        const maxPages = 50; // Trending feed only returns 10 per page, so we need more pages
 
     // Fetch casts in pages until we have enough from today or run out
     console.log("🔵 [API /casts/today] Starting pagination loop, maxPages:", maxPages);
