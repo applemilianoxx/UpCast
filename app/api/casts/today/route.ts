@@ -5,6 +5,19 @@ import { NextResponse } from "next/server";
 const NEYNAR_API = "https://api.neynar.com/v2";
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY || ""; // Get free API key from https://neynar.com
 
+// Helper to get the best available fetch (undici if available, otherwise native)
+async function getFetch(): Promise<typeof fetch> {
+  try {
+    // @ts-expect-error - undici might not have types
+    const { fetch: undiciFetch } = await import('undici');
+    console.log("🔵 [API] Using undici fetch for better serverless compatibility");
+    return undiciFetch as typeof fetch;
+  } catch (e) {
+    console.log("🔵 [API] Using native fetch (undici not available)");
+    return fetch;
+  }
+}
+
 interface Cast {
   hash: string;
   text: string;
@@ -27,6 +40,9 @@ async function fetchCastsWithPagination(
   cursor: string | undefined,
   limit: number
 ): Promise<{ casts: unknown[]; nextCursor?: string }> {
+  // Get the best available fetch implementation
+  const safeFetch = await getFetch();
+  
   // Try Neynar API first, fallback to Farcaster Kit
   const useNeynar = !!NEYNAR_API_KEY;
   console.log(`🔵 [fetchCastsWithPagination] useNeynar: ${useNeynar}, hasKey: ${!!NEYNAR_API_KEY}`);
@@ -68,15 +84,19 @@ async function fetchCastsWithPagination(
       // Try with minimal fetch options first - sometimes AbortController causes issues
       let response;
       try {
-        // Use native fetch with minimal options
-        response = await fetch(fetchUrl, {
+        // Use safeFetch (undici if available, otherwise native fetch)
+        // This might help with Vercel's serverless environment
+        response = await safeFetch(fetchUrl, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
             'x-api-key': NEYNAR_API_KEY,
+            'User-Agent': 'UPLYST-MiniApp/1.0',
           },
-          // Remove signal initially to see if that's causing the issue
-        });
+          // Add cache control to help with connection reuse
+          cache: 'no-store',
+          // Try without keepalive first as it might not be supported
+        } as RequestInit);
         const fetchTime = Date.now() - fetchStart;
         console.log(`🔵 [fetchCastsWithPagination] Neynar fetch completed in ${fetchTime}ms, status: ${response.status}`);
       } catch (fetchError: unknown) {
@@ -169,7 +189,7 @@ async function fetchCastsWithPagination(
     try {
       // Try with minimal options - no AbortController to avoid potential issues
       console.log(`🔵 [fetchCastsWithPagination] Making Farcaster Kit fetch call`);
-      response = await fetch(urlString, {
+      response = await safeFetch(urlString, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
