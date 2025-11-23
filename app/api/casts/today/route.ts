@@ -55,6 +55,36 @@ const POPULAR_FARCASTER_USERS = [
   "danromero", "jesse", "varunsrinivasan", "rish", "balajis"
 ];
 
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  safeFetch: typeof fetch,
+  maxRetries = 3
+): Promise<Response> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const response = await safeFetch(url, options);
+    
+    // If rate limited (429), wait and retry
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After');
+      const waitTime = retryAfter 
+        ? parseInt(retryAfter, 10) * 1000 
+        : Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+      
+      if (attempt < maxRetries - 1) {
+        console.warn(`🔵 [fetchWithRetry] ⚠️ Rate limited (429), waiting ${waitTime}ms before retry ${attempt + 1}/${maxRetries}`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+    }
+    
+    return response;
+  }
+  
+  // If all retries failed, return the last response
+  return await safeFetch(url, options);
+}
+
 async function fetchCastsFromUser(
   username: string,
   safeFetch: typeof fetch
@@ -66,18 +96,26 @@ async function fetchCastsFromUser(
     const userUrl = new URL(`${NEYNAR_API}/farcaster/user/by_username`);
     userUrl.searchParams.set("username", username);
     
-    const userResponse = await safeFetch(userUrl.toString(), {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'x-api-key': NEYNAR_API_KEY,
-        'User-Agent': 'UPLYST-MiniApp/1.0',
-      },
-      cache: 'no-store',
-    } as RequestInit);
+    const userResponse = await fetchWithRetry(
+      userUrl.toString(),
+      {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'x-api-key': NEYNAR_API_KEY,
+          'User-Agent': 'UPLYST-MiniApp/1.0',
+        },
+        cache: 'no-store',
+      } as RequestInit,
+      safeFetch
+    );
     
     if (!userResponse.ok) {
-      console.warn(`🔵 [fetchCastsFromUser] ⚠️ Could not get user info for @${username}: ${userResponse.status}`);
+      if (userResponse.status === 429) {
+        console.warn(`🔵 [fetchCastsFromUser] ⚠️ Rate limited getting user info for @${username} after retries`);
+      } else {
+        console.warn(`🔵 [fetchCastsFromUser] ⚠️ Could not get user info for @${username}: ${userResponse.status}`);
+      }
       return [];
     }
     
@@ -96,19 +134,27 @@ async function fetchCastsFromUser(
     
     console.log(`🔵 [fetchCastsFromUser] Fetching casts from @${username}: ${url.toString()}`);
     
-    const response = await safeFetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'x-api-key': NEYNAR_API_KEY,
-        'User-Agent': 'UPLYST-MiniApp/1.0',
-      },
-      cache: 'no-store',
-    } as RequestInit);
+    const response = await fetchWithRetry(
+      url.toString(),
+      {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'x-api-key': NEYNAR_API_KEY,
+          'User-Agent': 'UPLYST-MiniApp/1.0',
+        },
+        cache: 'no-store',
+      } as RequestInit,
+      safeFetch
+    );
     
     if (!response.ok) {
       if (response.status === 402) {
         console.warn(`🔵 [fetchCastsFromUser] ⚠️ Payment required for @${username}`);
+        return [];
+      }
+      if (response.status === 429) {
+        console.warn(`🔵 [fetchCastsFromUser] ⚠️ Rate limited fetching casts for @${username} after retries`);
         return [];
       }
       const errorText = await response.text().catch(() => 'Could not read error text');
@@ -148,23 +194,20 @@ async function fetchCastsWithPagination(
     try {
       console.log(`🔵 [fetchCastsWithPagination] Fetching casts from ${POPULAR_FARCASTER_USERS.length} popular users...`);
       
-      // Fetch casts from all popular users in parallel (but limit concurrency)
+      // Fetch casts from all popular users sequentially to avoid rate limits
       const allCasts: unknown[] = [];
-      const batchSize = 3; // Process 3 users at a time to avoid rate limits
       
-      for (let i = 0; i < POPULAR_FARCASTER_USERS.length; i += batchSize) {
-        const batch = POPULAR_FARCASTER_USERS.slice(i, i + batchSize);
-        const batchPromises = batch.map(username => fetchCastsFromUser(username, safeFetch));
-        const batchResults = await Promise.all(batchPromises);
+      // Process users one at a time with delays to respect rate limits
+      for (let i = 0; i < POPULAR_FARCASTER_USERS.length; i++) {
+        const username = POPULAR_FARCASTER_USERS[i];
+        console.log(`🔵 [fetchCastsWithPagination] Processing user ${i + 1}/${POPULAR_FARCASTER_USERS.length}: @${username}`);
         
-        // Flatten results
-        for (const casts of batchResults) {
-          allCasts.push(...casts);
-        }
+        const casts = await fetchCastsFromUser(username, safeFetch);
+        allCasts.push(...casts);
         
-        // Small delay between batches to avoid rate limits
-        if (i + batchSize < POPULAR_FARCASTER_USERS.length) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+        // Add delay between users to avoid rate limits (500ms between requests)
+        if (i < POPULAR_FARCASTER_USERS.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
       
