@@ -78,105 +78,10 @@ export default function HomeTab() {
     },
   ]); // TODO: Fetch from API
 
-  // Fetch today's top casts from API
+  // Casts loading disabled for now
   useEffect(() => {
-    async function fetchTodaysCasts() {
-      const startTime = Date.now();
-      console.log("🏠 [HomeTab] Starting to fetch today's casts...");
-      
-      try {
-        setLoading(true);
-        console.log("🏠 [HomeTab] Loading state set to true");
-        console.log("🏠 [HomeTab] Making fetch request to /api/casts/today");
-        
-        const response = await fetch("/api/casts/today");
-        const fetchTime = Date.now() - startTime;
-        console.log(`🏠 [HomeTab] Fetch completed in ${fetchTime}ms`);
-        console.log("🏠 [HomeTab] Response status:", response.status);
-        console.log("🏠 [HomeTab] Response ok:", response.ok);
-        console.log("🏠 [HomeTab] Response headers:", Object.fromEntries(response.headers.entries()));
-        
-        // Parse JSON regardless of status - we handle errors in the data
-        const data = await response.json();
-        
-        if (!response.ok) {
-          console.error("🏠 [HomeTab] ❌ Response not OK, status:", response.status);
-          console.error("🏠 [HomeTab] ❌ Error data:", data);
-          // If response is not OK, check if we have any casts to show
-          if (data.casts && Array.isArray(data.casts) && data.casts.length > 0) {
-            console.log("🏠 [HomeTab] ⚠️ Response not OK but we have casts, using them");
-            setRankedCasts(data.casts);
-            setLoading(false);
-            return;
-          }
-          // Otherwise, just show empty state (don't throw error)
-          console.log("🏠 [HomeTab] ⚠️ Response not OK and no casts, showing empty state");
-          setRankedCasts([]);
-          setLoading(false);
-          return;
-        }
-        
-        console.log("🏠 [HomeTab] ✅ Response OK, processing data...");
-        const totalTime = Date.now() - startTime;
-        console.log(`🏠 [HomeTab] ✅ JSON parsed in ${totalTime}ms total`);
-        console.log("🏠 [HomeTab] 📦 Received data structure:", {
-          hasCasts: !!data.casts,
-          castsType: Array.isArray(data.casts) ? 'array' : typeof data.casts,
-          castsLength: data.casts?.length || 0,
-          total: data.total,
-          keys: Object.keys(data),
-          firstCast: data.casts?.[0] ? {
-            hash: data.casts[0].hash,
-            text: data.casts[0].text?.substring(0, 50),
-            author: data.casts[0].author?.username,
-          } : null,
-        });
-        console.log("🏠 [HomeTab] 📊 Full data object:", data);
-        
-        // Handle case where API returns error but with 200 status
-        if (data.error) {
-          console.warn("🏠 [HomeTab] ⚠️ API returned error in response:", data.error);
-          console.warn("🏠 [HomeTab] ⚠️ Error details:", data.details);
-          // Still try to use casts if available, otherwise empty array
-          if (data.casts && Array.isArray(data.casts) && data.casts.length > 0) {
-            console.log("🏠 [HomeTab] ⚠️ Error but we have casts, using them");
-            setRankedCasts(data.casts);
-            setLoading(false);
-            return;
-          }
-          console.log("🏠 [HomeTab] ⚠️ Error and no casts, showing empty state");
-          setRankedCasts([]);
-          setLoading(false);
-          return;
-        }
-        
-        if (data.casts && Array.isArray(data.casts)) {
-          console.log(`🏠 [HomeTab] ✅ Setting ${data.casts.length} casts to state`);
-          setRankedCasts(data.casts);
-        } else {
-          console.warn("🏠 [HomeTab] ⚠️ No casts array in response, setting empty array");
-          setRankedCasts([]);
-        }
-      } catch (error) {
-        const totalTime = Date.now() - startTime;
-        console.error(`🏠 [HomeTab] ❌ Error after ${totalTime}ms:`, error);
-        console.error("🏠 [HomeTab] ❌ Error details:", {
-          name: error instanceof Error ? error.name : 'Unknown',
-          message: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
-        console.error("🏠 [HomeTab] ❌ Setting empty casts array due to error");
-        setRankedCasts([]);
-      } finally {
-        const totalTime = Date.now() - startTime;
-        console.log(`🏠 [HomeTab] 🏁 Finished fetch attempt in ${totalTime}ms`);
-        setLoading(false);
-        console.log("🏠 [HomeTab] Loading state set to false");
-      }
-    }
-
-    console.log("🏠 [HomeTab] useEffect triggered, calling fetchTodaysCasts");
-    fetchTodaysCasts();
+    setLoading(false);
+    setRankedCasts([]);
   }, []);
 
   // Debug: Log state changes
