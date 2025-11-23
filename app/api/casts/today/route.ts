@@ -36,17 +36,16 @@ async function fetchCastsWithPagination(
       // Verify API key is present
       console.log(`🔵 [fetchCastsWithPagination] Neynar API key present: ${!!NEYNAR_API_KEY}, length: ${NEYNAR_API_KEY.length}`);
       
-      // Try the correct Neynar API endpoint for feeds
-      // Based on Neynar docs: https://api.neynar.com/v2/farcaster/feed
-      const url = new URL(`${NEYNAR_API}/farcaster/feed`);
-      url.searchParams.set("feed_type", "filter");
-      url.searchParams.set("filter_type", "global_trending");
+      // Use the dedicated trending feed endpoint: GET /v2/farcaster/feed/trending/
+      // Docs: https://docs.neynar.com/reference/fetch-trending-feed
+      const url = new URL(`${NEYNAR_API}/farcaster/feed/trending/`);
       url.searchParams.set("limit", limit.toString());
+      url.searchParams.set("time_window", "24h"); // Get trending from last 24 hours
       if (cursor) {
         url.searchParams.set("cursor", cursor);
       }
 
-      console.log(`🔵 [fetchCastsWithPagination] Attempting Neynar fetch: ${url.toString()}`);
+      console.log(`🔵 [fetchCastsWithPagination] Attempting Neynar trending feed fetch: ${url.toString()}`);
       console.log(`🔵 [fetchCastsWithPagination] Headers: x-api-key present: ${!!NEYNAR_API_KEY}`);
       const fetchStart = Date.now();
       const controller = new AbortController();
@@ -92,10 +91,11 @@ async function fetchCastsWithPagination(
       }
       
       const data = await response.json();
-      const casts = data.result?.casts || data.casts || [];
-      const nextCursor = data.result?.next?.cursor || data.next?.cursor;
-      
-      console.log(`🔵 [fetchCastsWithPagination] ✅ Neynar success:`, { castsCount: casts.length, nextCursor });
+      // Trending feed endpoint returns { casts: [...], next: { cursor: "..." } }
+      const casts = data.casts || [];
+      const nextCursor = data.next?.cursor;
+
+      console.log(`🔵 [fetchCastsWithPagination] ✅ Neynar trending feed success:`, { castsCount: casts.length, nextCursor });
       
       return { casts, nextCursor };
     } catch (error) {
