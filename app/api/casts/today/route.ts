@@ -36,18 +36,16 @@ async function fetchCastsWithPagination(
       // Verify API key is present
       console.log(`🔵 [fetchCastsWithPagination] Neynar API key present: ${!!NEYNAR_API_KEY}, length: ${NEYNAR_API_KEY.length}`);
       
-      // Use the feed endpoint with filter_type=global_trending
-      // Docs: https://docs.neynar.com/reference/fetch-feed
-      // This allows limit up to 100 (trending endpoint only allows 10)
-      const url = new URL(`${NEYNAR_API}/farcaster/feed/`);
-      url.searchParams.set("feed_type", "filter");
-      url.searchParams.set("filter_type", "global_trending");
+      // Use /v1/farcaster/recent-casts endpoint (2 credits, available on Beginner plan)
+      // Docs: https://docs.neynar.com/reference/fetch-recent-casts
+      // This endpoint returns recent casts and is cheaper than feed endpoint
+      const url = new URL(`${NEYNAR_API.replace('/v2', '/v1')}/farcaster/recent-casts`);
       url.searchParams.set("limit", Math.min(limit, 100).toString()); // Max 100 per Neynar API
       if (cursor) {
         url.searchParams.set("cursor", cursor);
       }
 
-      console.log(`🔵 [fetchCastsWithPagination] Attempting Neynar feed fetch: ${url.toString()}`);
+      console.log(`🔵 [fetchCastsWithPagination] Attempting Neynar recent-casts fetch: ${url.toString()}`);
       console.log(`🔵 [fetchCastsWithPagination] Headers: x-api-key present: ${!!NEYNAR_API_KEY}`);
       const fetchStart = Date.now();
       const controller = new AbortController();
@@ -93,11 +91,11 @@ async function fetchCastsWithPagination(
       }
       
       const data = await response.json();
-      // Feed endpoint returns { casts: [...], next: { cursor: "..." } }
-      const casts = data.casts || [];
-      const nextCursor = data.next?.cursor;
+      // Recent-casts endpoint returns { result: { casts: [...], next: { cursor: "..." } } } or { casts: [...] }
+      const casts = data.result?.casts || data.casts || [];
+      const nextCursor = data.result?.next?.cursor || data.next?.cursor;
 
-      console.log(`🔵 [fetchCastsWithPagination] ✅ Neynar feed success:`, { castsCount: casts.length, nextCursor });
+      console.log(`🔵 [fetchCastsWithPagination] ✅ Neynar recent-casts success:`, { castsCount: casts.length, nextCursor });
       
       return { casts, nextCursor };
     } catch (error) {

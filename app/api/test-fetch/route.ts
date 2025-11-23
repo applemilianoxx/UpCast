@@ -35,12 +35,10 @@ export async function GET() {
   }
 
   try {
-    // Test 2: Neynar API fetch
+    // Test 2: Neynar API fetch - using /v1/farcaster/recent-casts (available on Beginner plan)
     console.log("🧪 [test-fetch] Test 2: Neynar API fetch");
     const neynarStart = Date.now();
-    const neynarUrl = new URL("https://api.neynar.com/v2/farcaster/feed/");
-    neynarUrl.searchParams.set("feed_type", "filter");
-    neynarUrl.searchParams.set("filter_type", "global_trending");
+    const neynarUrl = new URL("https://api.neynar.com/v1/farcaster/recent-casts");
     neynarUrl.searchParams.set("limit", "10");
     
     console.log(`🧪 [test-fetch] Neynar URL: ${neynarUrl.toString()}`);
