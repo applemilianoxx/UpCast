@@ -48,6 +48,85 @@ interface Cast {
   embeds?: Array<{ url?: string }>;
 }
 
+// List of popular Farcaster users to fetch casts from
+// These are well-known accounts that post frequently
+const POPULAR_FARCASTER_USERS = [
+  "dwr", "v", "farcaster", "base", "optimism", "a16z", "paradigm",
+  "danromero", "jesse", "varunsrinivasan", "rish", "balajis"
+];
+
+async function fetchCastsFromUser(
+  username: string,
+  safeFetch: typeof fetch
+): Promise<unknown[]> {
+  try {
+    // Use /v2/farcaster/feed/user/casts - 4 credits per request (free tier)
+    // Docs: https://docs.neynar.com/reference/fetch-user-casts
+    // First, get the user's FID by username
+    const userUrl = new URL(`${NEYNAR_API}/farcaster/user/by_username`);
+    userUrl.searchParams.set("username", username);
+    
+    const userResponse = await safeFetch(userUrl.toString(), {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'x-api-key': NEYNAR_API_KEY,
+        'User-Agent': 'UPLYST-MiniApp/1.0',
+      },
+      cache: 'no-store',
+    } as RequestInit);
+    
+    if (!userResponse.ok) {
+      console.warn(`🔵 [fetchCastsFromUser] ⚠️ Could not get user info for @${username}: ${userResponse.status}`);
+      return [];
+    }
+    
+    const userData = await userResponse.json();
+    const fid = userData.result?.fid || userData.fid;
+    
+    if (!fid) {
+      console.warn(`🔵 [fetchCastsFromUser] ⚠️ No FID found for @${username}`);
+      return [];
+    }
+    
+    // Now fetch casts using FID
+    const url = new URL(`${NEYNAR_API}/farcaster/feed/user/casts`);
+    url.searchParams.set("fid", fid.toString());
+    url.searchParams.set("limit", "25"); // Get up to 25 casts per user
+    
+    console.log(`🔵 [fetchCastsFromUser] Fetching casts from @${username}: ${url.toString()}`);
+    
+    const response = await safeFetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'x-api-key': NEYNAR_API_KEY,
+        'User-Agent': 'UPLYST-MiniApp/1.0',
+      },
+      cache: 'no-store',
+    } as RequestInit);
+    
+    if (!response.ok) {
+      if (response.status === 402) {
+        console.warn(`🔵 [fetchCastsFromUser] ⚠️ Payment required for @${username}`);
+        return [];
+      }
+      const errorText = await response.text().catch(() => 'Could not read error text');
+      console.error(`🔵 [fetchCastsFromUser] ❌ Error fetching @${username}: ${response.status} ${errorText}`);
+      return [];
+    }
+    
+    const data = await response.json();
+    // Response format: { result: { casts: [...] } } or { casts: [...] }
+    const casts = data.result?.casts || data.casts || [];
+    console.log(`🔵 [fetchCastsFromUser] ✅ Got ${casts.length} casts from @${username}`);
+    return casts;
+  } catch (error) {
+    console.error(`🔵 [fetchCastsFromUser] ❌ Error fetching casts from @${username}:`, error instanceof Error ? error.message : String(error));
+    return [];
+  }
+}
+
 async function fetchCastsWithPagination(
   cursor: string | undefined,
   limit: number
@@ -63,183 +142,45 @@ async function fetchCastsWithPagination(
     throw new Error('NEYNAR_API_KEY environment variable is not set. Please configure it in Vercel environment variables.');
   }
   
-  if (useNeynar) {
+  // For the first page, fetch from popular users
+  // For subsequent pages, we'll use cursor-based pagination if available
+  if (!cursor || cursor === 'initial') {
     try {
-      // Verify API key is present
-      console.log(`🔵 [fetchCastsWithPagination] Neynar API key present: ${!!NEYNAR_API_KEY}, length: ${NEYNAR_API_KEY.length}`);
+      console.log(`🔵 [fetchCastsWithPagination] Fetching casts from ${POPULAR_FARCASTER_USERS.length} popular users...`);
       
-      // Use cast search endpoint (available on free tier)
-      // The trending feed endpoint requires a paid plan (402 Payment Required)
-      // Docs: https://docs.neynar.com/reference/search-casts
-      // Note: NEYNAR_API already includes /v2, so we don't add it again
-      const url = new URL(`${NEYNAR_API}/farcaster/cast/search`);
+      // Fetch casts from all popular users in parallel (but limit concurrency)
+      const allCasts: unknown[] = [];
+      const batchSize = 3; // Process 3 users at a time to avoid rate limits
       
-      // Search for all casts (wildcard) and filter by recent activity
-      url.searchParams.set("q", "*"); // Search for all casts
-      url.searchParams.set("limit", Math.min(limit, 100).toString()); // Max 100 per search endpoint
-      if (cursor) {
-        url.searchParams.set("cursor", cursor);
-      }
-
-      const finalUrl = url.toString();
-      console.log(`🔵 [fetchCastsWithPagination] Attempting Neynar cast search (free tier): ${finalUrl}`);
-      console.log(`🔵 [fetchCastsWithPagination] URL components:`, {
-        protocol: url.protocol,
-        host: url.host,
-        pathname: url.pathname,
-        search: url.search,
-        fullUrl: finalUrl,
-      });
-      console.log(`🔵 [fetchCastsWithPagination] Headers: x-api-key present: ${!!NEYNAR_API_KEY}`);
-      const fetchStart = Date.now();
-      const fetchUrl = url.toString(); // Declare outside try block so it's accessible in catch
-      
-      console.log(`🔵 [fetchCastsWithPagination] Fetch URL: ${fetchUrl}`);
-      console.log(`🔵 [fetchCastsWithPagination] API Key first 4 chars: ${NEYNAR_API_KEY.substring(0, 4)}...`);
-      
-      // Try with minimal fetch options first - sometimes AbortController causes issues
-      let response;
-      try {
-        // Use safeFetch (undici if available, otherwise native fetch)
-        // This might help with Vercel's serverless environment
-        response = await safeFetch(fetchUrl, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'x-api-key': NEYNAR_API_KEY,
-            'User-Agent': 'UPLYST-MiniApp/1.0',
-          },
-          // Add cache control to help with connection reuse
-          cache: 'no-store',
-          // Try without keepalive first as it might not be supported
-        } as RequestInit);
-        const fetchTime = Date.now() - fetchStart;
-        console.log(`🔵 [fetchCastsWithPagination] Neynar fetch completed in ${fetchTime}ms, status: ${response.status}`);
-      } catch (fetchError: unknown) {
-        const fetchTime = Date.now() - fetchStart;
-        const error = fetchError instanceof Error ? fetchError : new Error(String(fetchError));
+      for (let i = 0; i < POPULAR_FARCASTER_USERS.length; i += batchSize) {
+        const batch = POPULAR_FARCASTER_USERS.slice(i, i + batchSize);
+        const batchPromises = batch.map(username => fetchCastsFromUser(username, safeFetch));
+        const batchResults = await Promise.all(batchPromises);
         
-        // Extract ALL possible error information
-        const errorDetails: Record<string, unknown> = {
-          message: error.message,
-          name: error.name,
-          type: typeof fetchError,
-          fetchUrl,
-          fetchTime: `${fetchTime}ms`,
-          timestamp: new Date().toISOString(),
-        };
-        
-        // Try to extract ALL error properties
-        if (error instanceof Error) {
-          const err = error as Error & { 
-            code?: string; 
-            errno?: string | number; 
-            syscall?: string;
-            cause?: unknown;
-            [key: string]: unknown;
-          };
-          
-          // Standard Node.js error properties
-          if (err.code) errorDetails.code = err.code;
-          if (err.errno) errorDetails.errno = err.errno;
-          if (err.syscall) errorDetails.syscall = err.syscall;
-          if (err.cause) {
-            errorDetails.cause = err.cause instanceof Error ? {
-              message: err.cause.message,
-              name: err.cause.name,
-              code: (err.cause as { code?: string }).code,
-            } : String(err.cause);
-          }
-          
-          // Try to get stack (first 15 lines for more context)
-          if (error.stack) {
-            errorDetails.stack = error.stack.split('\n').slice(0, 15);
-          }
-          
-          // Check for specific error patterns
-          if (error.name === 'TypeError' && error.message.includes('fetch failed')) {
-            errorDetails.errorType = 'NetworkError';
-            errorDetails.suggestion = 'DNS or network connectivity issue from Vercel to Neynar API';
-            
-            // Try to extract more from message
-            if (error.message.includes('ENOTFOUND')) {
-              errorDetails.dnsIssue = true;
-              errorDetails.suggestion = 'DNS resolution failed - check if api.neynar.com is accessible';
-            } else if (error.message.includes('ECONNREFUSED')) {
-              errorDetails.connectionRefused = true;
-              errorDetails.suggestion = 'Connection refused - API might be down or blocking requests';
-            } else if (error.message.includes('ETIMEDOUT')) {
-              errorDetails.timeout = true;
-              errorDetails.suggestion = 'Request timed out - API might be slow or unreachable';
-            }
-          }
+        // Flatten results
+        for (const casts of batchResults) {
+          allCasts.push(...casts);
         }
         
-        // Log EVERYTHING - use console.error for each property to ensure it shows up
-        console.error(`🔵 [fetchCastsWithPagination] ❌ Neynar fetch failed after ${fetchTime}ms`);
-        console.error(`🔵 [fetchCastsWithPagination] Error message: ${error.message}`);
-        console.error(`🔵 [fetchCastsWithPagination] Error name: ${error.name}`);
-        console.error(`🔵 [fetchCastsWithPagination] Error type: ${typeof fetchError}`);
-        console.error(`🔵 [fetchCastsWithPagination] Fetch URL: ${fetchUrl}`);
-        console.error(`🔵 [fetchCastsWithPagination] Full error details:`, JSON.stringify(errorDetails, null, 2));
-        
-        // Log error properties individually to ensure they show up
-        if (error instanceof Error) {
-          const err = error as Error & { [key: string]: unknown };
-          Object.keys(err).forEach(key => {
-            if (key !== 'stack' && key !== 'message' && key !== 'name') {
-              console.error(`🔵 [fetchCastsWithPagination] Error.${key}:`, err[key]);
-            }
-          });
+        // Small delay between batches to avoid rate limits
+        if (i + batchSize < POPULAR_FARCASTER_USERS.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
-        
-        throw new Error(`Neynar fetch failed: ${error.message} (${error.name})`, { cause: fetchError });
       }
       
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Could not read error text');
-        console.error(`🔵 [fetchCastsWithPagination] ❌ Neynar API error ${response.status}:`, errorText);
-        
-        // Handle 402 Payment Required - API endpoint requires paid plan
-        if (response.status === 402) {
-          console.warn(`🔵 [fetchCastsWithPagination] ⚠️ Neynar API requires paid plan. Endpoint: ${fetchUrl}`);
-          // Return empty array so pagination stops gracefully
-          return { casts: [], nextCursor: undefined };
-        }
-        
-        throw new Error(`Neynar API error: ${response.status} ${response.statusText}`);
-      }
-      
-          const data = await response.json();
-          // Cast search endpoint returns { result: { casts: [...], next: { cursor: "..." } } }
-          // or { casts: [...], next: { cursor: "..." } } depending on API version
-          const casts = data.result?.casts || data.casts || [];
-          const nextCursor = data.result?.next?.cursor || data.next?.cursor;
-
-          console.log(`🔵 [fetchCastsWithPagination] ✅ Neynar cast search success:`, { castsCount: casts.length, nextCursor });
-      
-      return { casts, nextCursor };
+      console.log(`🔵 [fetchCastsWithPagination] ✅ Fetched ${allCasts.length} total casts from popular users`);
+      return { casts: allCasts, nextCursor: 'done' }; // No pagination for this approach
     } catch (error) {
-      console.error(`🔵 [fetchCastsWithPagination] ❌ Neynar API failed:`, {
+      console.error(`🔵 [fetchCastsWithPagination] ❌ Error fetching from popular users:`, {
         error: error instanceof Error ? error.message : String(error),
         name: error instanceof Error ? error.name : 'Unknown',
-        stack: error instanceof Error ? error.stack?.split('\n').slice(0, 10) : undefined,
       });
-      // If it's a 402 error, we've already handled it above
-      // For other errors, check if it's a payment required error
-      if (error instanceof Error && error.message.includes('402')) {
-        console.warn(`🔵 [fetchCastsWithPagination] ⚠️ Neynar API requires paid plan`);
-        return { casts: [], nextCursor: undefined };
-      }
-      
-      // Don't fallback to Farcaster Kit - it has SSL certificate issues
-      // Re-throw the Neynar error so we can see what's wrong
       throw error;
     }
   }
   
-  // This should never be reached due to the check at the beginning
-  throw new Error('Neynar API key not configured. Please set NEYNAR_API_KEY environment variable.');
+  // If cursor is 'done', return empty (no more pages)
+  return { casts: [], nextCursor: undefined };
 }
 
 export async function GET() {
@@ -266,18 +207,18 @@ export async function GET() {
       todayStartTimestamp,
       nowTimestamp,
     });
-    let cursor: string | undefined;
+    let cursor: string | undefined = 'initial'; // Start with 'initial' to fetch from popular users
     let hasMore = true;
     let pageCount = 0;
-        const maxPages = 50; // Trending feed only returns 10 per page, so we need more pages
+    const maxPages = 1; // We fetch all popular users in one go, so only need 1 page
 
-    // Fetch casts in pages until we have enough from today or run out
-    console.log("🔵 [API /casts/today] Starting pagination loop, maxPages:", maxPages);
+    // Fetch casts from popular users
+    console.log("🔵 [API /casts/today] Starting fetch from popular users");
     while (hasMore && pageCount < maxPages) {
       const pageStartTime = Date.now();
       console.log(`🔵 [API /casts/today] Fetching page ${pageCount + 1} with cursor: ${cursor}`);
       
-      const { casts, nextCursor } = await fetchCastsWithPagination(cursor, 10);
+      const { casts, nextCursor } = await fetchCastsWithPagination(cursor, 100);
       const pageTime = Date.now() - pageStartTime;
       
       console.log(`🔵 [API /casts/today] Page ${pageCount + 1} fetched in ${pageTime}ms:`, {
