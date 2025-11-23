@@ -67,10 +67,10 @@ async function fetchCastsWithPagination(
       }, 15000);
       
       let response;
+      const fetchUrl = url.toString(); // Declare outside try block so it's accessible in catch
       try {
         // Use native fetch (available in Node.js 22)
         // Add explicit error handling for network issues
-        const fetchUrl = url.toString();
         console.log(`🔵 [fetchCastsWithPagination] Fetch URL: ${fetchUrl}`);
         console.log(`🔵 [fetchCastsWithPagination] API Key first 4 chars: ${NEYNAR_API_KEY.substring(0, 4)}...`);
         
