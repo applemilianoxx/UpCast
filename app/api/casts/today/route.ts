@@ -5,15 +5,26 @@ import { NextResponse } from "next/server";
 const NEYNAR_API = "https://api.neynar.com/v2";
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY || ""; // Get free API key from https://neynar.com
 
-// Helper to get the best available fetch (undici if available, otherwise native)
+// Helper to get the best available fetch (try multiple options)
 async function getFetch(): Promise<typeof fetch> {
+  // Try node-fetch first (most reliable in serverless environments)
+  try {
+    const nodeFetch = await import('node-fetch');
+    console.log("🔵 [API] Using node-fetch for serverless compatibility");
+    // node-fetch v2 exports default, v3 exports named
+    const fetchFn = (nodeFetch.default || nodeFetch) as typeof fetch;
+    return fetchFn as unknown as typeof fetch;
+  } catch (nodeFetchError) {
+    console.log("🔵 [API] node-fetch not available, trying undici...");
+  }
+  
+  // Try undici as second option
   try {
     const { fetch: undiciFetch } = await import('undici');
     console.log("🔵 [API] Using undici fetch for better serverless compatibility");
-    // undici's fetch is compatible but has slightly different types
     return undiciFetch as unknown as typeof fetch;
   } catch {
-    console.log("🔵 [API] Using native fetch (undici not available)");
+    console.log("🔵 [API] Using native fetch (fallback)");
     return fetch;
   }
 }
@@ -103,53 +114,81 @@ async function fetchCastsWithPagination(
         const fetchTime = Date.now() - fetchStart;
         const error = fetchError instanceof Error ? fetchError : new Error(String(fetchError));
         
-        // Extract more detailed error information
+        // Extract ALL possible error information
         const errorDetails: Record<string, unknown> = {
           message: error.message,
           name: error.name,
-          stack: error.stack?.split('\n').slice(0, 10), // First 10 lines
           type: typeof fetchError,
+          fetchUrl,
+          fetchTime: `${fetchTime}ms`,
+          timestamp: new Date().toISOString(),
         };
         
-        // Check for specific error types
-        if (error.name === 'TypeError' && error.message.includes('fetch failed')) {
-          errorDetails.errorType = 'NetworkError';
-          errorDetails.suggestion = 'This is likely a DNS or network connectivity issue from Vercel to Neynar API';
-        }
-        
-        // Try to extract cause if available
+        // Try to extract ALL error properties
         if (error instanceof Error) {
-          const cause = (error as Error & { cause?: unknown }).cause;
-          if (cause) {
-            errorDetails.cause = cause instanceof Error ? {
-              message: cause.message,
-              name: cause.name,
-            } : String(cause);
+          const err = error as Error & { 
+            code?: string; 
+            errno?: string | number; 
+            syscall?: string;
+            cause?: unknown;
+            [key: string]: unknown;
+          };
+          
+          // Standard Node.js error properties
+          if (err.code) errorDetails.code = err.code;
+          if (err.errno) errorDetails.errno = err.errno;
+          if (err.syscall) errorDetails.syscall = err.syscall;
+          if (err.cause) {
+            errorDetails.cause = err.cause instanceof Error ? {
+              message: err.cause.message,
+              name: err.cause.name,
+              code: (err.cause as { code?: string }).code,
+            } : String(err.cause);
+          }
+          
+          // Try to get stack (first 15 lines for more context)
+          if (error.stack) {
+            errorDetails.stack = error.stack.split('\n').slice(0, 15);
+          }
+          
+          // Check for specific error patterns
+          if (error.name === 'TypeError' && error.message.includes('fetch failed')) {
+            errorDetails.errorType = 'NetworkError';
+            errorDetails.suggestion = 'DNS or network connectivity issue from Vercel to Neynar API';
+            
+            // Try to extract more from message
+            if (error.message.includes('ENOTFOUND')) {
+              errorDetails.dnsIssue = true;
+              errorDetails.suggestion = 'DNS resolution failed - check if api.neynar.com is accessible';
+            } else if (error.message.includes('ECONNREFUSED')) {
+              errorDetails.connectionRefused = true;
+              errorDetails.suggestion = 'Connection refused - API might be down or blocking requests';
+            } else if (error.message.includes('ETIMEDOUT')) {
+              errorDetails.timeout = true;
+              errorDetails.suggestion = 'Request timed out - API might be slow or unreachable';
+            }
           }
         }
         
-        // Log the full error object for debugging
+        // Log EVERYTHING - use console.error for each property to ensure it shows up
         console.error(`🔵 [fetchCastsWithPagination] ❌ Neynar fetch failed after ${fetchTime}ms`);
-        console.error(`🔵 [fetchCastsWithPagination] Error details:`, errorDetails);
-        console.error(`🔵 [fetchCastsWithPagination] Full error:`, error);
-        console.error(`🔵 [fetchCastsWithPagination] Error stack:`, error.stack);
-        console.error(`🔵 [fetchCastsWithPagination] Fetch URL that failed:`, fetchUrl);
+        console.error(`🔵 [fetchCastsWithPagination] Error message: ${error.message}`);
+        console.error(`🔵 [fetchCastsWithPagination] Error name: ${error.name}`);
+        console.error(`🔵 [fetchCastsWithPagination] Error type: ${typeof fetchError}`);
+        console.error(`🔵 [fetchCastsWithPagination] Fetch URL: ${fetchUrl}`);
+        console.error(`🔵 [fetchCastsWithPagination] Full error details:`, JSON.stringify(errorDetails, null, 2));
         
-        // Try to get more info from the error
+        // Log error properties individually to ensure they show up
         if (error instanceof Error) {
-          const err = error as Error & { code?: string; errno?: string; syscall?: string };
-          if (err.code) {
-            console.error(`🔵 [fetchCastsWithPagination] Error code:`, err.code);
-          }
-          if (err.errno) {
-            console.error(`🔵 [fetchCastsWithPagination] Error errno:`, err.errno);
-          }
-          if (err.syscall) {
-            console.error(`🔵 [fetchCastsWithPagination] Error syscall:`, err.syscall);
-          }
+          const err = error as Error & { [key: string]: unknown };
+          Object.keys(err).forEach(key => {
+            if (key !== 'stack' && key !== 'message' && key !== 'name') {
+              console.error(`🔵 [fetchCastsWithPagination] Error.${key}:`, err[key]);
+            }
+          });
         }
         
-        throw new Error(`Neynar fetch failed: ${errorDetails.message} (${errorDetails.name})`, { cause: fetchError });
+        throw new Error(`Neynar fetch failed: ${error.message} (${error.name})`, { cause: fetchError });
       }
       
       if (!response.ok) {
