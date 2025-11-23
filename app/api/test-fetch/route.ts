@@ -38,9 +38,17 @@ export async function GET() {
     // Test 2: Neynar API fetch - using /v2/farcaster/cast/search (10 credits, available on Beginner plan)
     console.log("🧪 [test-fetch] Test 2: Neynar API fetch");
     const neynarStart = Date.now();
-    const neynarUrl = new URL("https://api.neynar.com/v2/farcaster/cast/search");
+    const neynarUrl = new URL("https://api.neynar.com/v2/farcaster/cast/search/"); // Note: trailing slash
     neynarUrl.searchParams.set("q", "*"); // Search for all casts
     neynarUrl.searchParams.set("limit", "10");
+    
+    console.log(`🧪 [test-fetch] Neynar URL: ${neynarUrl.toString()}`);
+    console.log(`🧪 [test-fetch] URL components:`, {
+      protocol: neynarUrl.protocol,
+      host: neynarUrl.host,
+      pathname: neynarUrl.pathname,
+      search: neynarUrl.search,
+    });
     
     console.log(`🧪 [test-fetch] Neynar URL: ${neynarUrl.toString()}`);
     

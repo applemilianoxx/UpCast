@@ -39,9 +39,9 @@ async function fetchCastsWithPagination(
       
       // Use /v2/farcaster/cast/search endpoint (10 credits, available on Beginner plan)
       // Docs: https://docs.neynar.com/reference/search-casts
-      // Search for casts from today using the 'after:' operator
+      // Note: The endpoint requires a trailing slash according to docs
       const todayDate = new Date(todayStartTimestamp).toISOString().split('T')[0]; // YYYY-MM-DD
-      const url = new URL(`${NEYNAR_API}/farcaster/cast/search`);
+      const url = new URL(`${NEYNAR_API}/farcaster/cast/search/`); // Note: trailing slash
       url.searchParams.set("q", `* after:${todayDate}`); // Search for all casts after today's date
       url.searchParams.set("sort_type", "algorithmic"); // Sort by engagement
       url.searchParams.set("limit", Math.min(limit, 100).toString()); // Max 100 per Neynar API
@@ -49,7 +49,15 @@ async function fetchCastsWithPagination(
         url.searchParams.set("cursor", cursor);
       }
 
-      console.log(`🔵 [fetchCastsWithPagination] Attempting Neynar cast search fetch: ${url.toString()}`);
+      const finalUrl = url.toString();
+      console.log(`🔵 [fetchCastsWithPagination] Attempting Neynar cast search fetch: ${finalUrl}`);
+      console.log(`🔵 [fetchCastsWithPagination] URL components:`, {
+        protocol: url.protocol,
+        host: url.host,
+        pathname: url.pathname,
+        search: url.search,
+        fullUrl: finalUrl,
+      });
       console.log(`🔵 [fetchCastsWithPagination] Headers: x-api-key present: ${!!NEYNAR_API_KEY}`);
       const fetchStart = Date.now();
       const controller = new AbortController();
