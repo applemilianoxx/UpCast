@@ -144,7 +144,7 @@ async function fetchCastsWithPagination(
         constructor: error.constructor?.name,
       };
       console.error(`🔵 [fetchCastsWithPagination] ❌ Farcaster Kit fetch failed after ${fetchTime}ms:`, errorDetails);
-      console.error(`🔵 [fetchCastsWithPagination] ❌ Full error object:`, JSON.stringify(errorDetails, null, 2));
+      // Don't try to JSON.stringify errorDetails as it may contain circular references
       
       // Re-throw with more context
       const enhancedError = new Error(`Fetch failed: ${errorDetails.error} (${errorDetails.name})`);
@@ -364,18 +364,33 @@ export async function GET() {
     });
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    console.error(`🔵 [API /casts/today] ❌ Error after ${totalTime}ms:`, error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     const errorStack = error instanceof Error ? error.stack : undefined;
     const errorName = error instanceof Error ? error.name : typeof error;
     
-    console.error("🔵 [API /casts/today] ❌ Error details:", { 
-      errorMessage, 
-      errorStack, 
-      error,
+    // Safely extract error details without circular references
+    const safeErrorDetails: Record<string, unknown> = {
+      errorMessage,
+      errorStack,
       errorType: errorName,
-      errorCause: error instanceof Error ? (error as Error & { cause?: unknown }).cause : undefined,
-    });
+    };
+    
+    // Try to extract cause safely (avoid circular references)
+    if (error instanceof Error) {
+      const cause = (error as Error & { cause?: unknown }).cause;
+      if (cause instanceof Error) {
+        safeErrorDetails.errorCause = {
+          message: cause.message,
+          name: cause.name,
+          stack: cause.stack,
+        };
+      } else if (typeof cause === 'string') {
+        safeErrorDetails.errorCause = cause;
+      }
+    }
+    
+    console.error(`🔵 [API /casts/today] ❌ Error after ${totalTime}ms:`, errorMessage);
+    console.error("🔵 [API /casts/today] ❌ Error details:", safeErrorDetails);
     
     // If we have some casts collected before the error, return them
     if (allCasts.length > 0) {
@@ -398,7 +413,7 @@ export async function GET() {
       });
     }
     
-    // Return a more detailed error response
+    // Return a more detailed error response (without circular references)
     return NextResponse.json(
       { 
         error: "Failed to fetch today's casts", 
