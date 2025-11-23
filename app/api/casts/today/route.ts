@@ -116,7 +116,27 @@ async function fetchCastsWithPagination(
           }
         }
         
-        console.error(`🔵 [fetchCastsWithPagination] ❌ Neynar fetch failed after ${fetchTime}ms:`, JSON.stringify(errorDetails, null, 2));
+        // Log the full error object for debugging
+        console.error(`🔵 [fetchCastsWithPagination] ❌ Neynar fetch failed after ${fetchTime}ms`);
+        console.error(`🔵 [fetchCastsWithPagination] Error details:`, errorDetails);
+        console.error(`🔵 [fetchCastsWithPagination] Full error:`, error);
+        console.error(`🔵 [fetchCastsWithPagination] Error stack:`, error.stack);
+        console.error(`🔵 [fetchCastsWithPagination] Fetch URL that failed:`, fetchUrl);
+        
+        // Try to get more info from the error
+        if (error instanceof Error) {
+          const err = error as Error & { code?: string; errno?: string; syscall?: string };
+          if (err.code) {
+            console.error(`🔵 [fetchCastsWithPagination] Error code:`, err.code);
+          }
+          if (err.errno) {
+            console.error(`🔵 [fetchCastsWithPagination] Error errno:`, err.errno);
+          }
+          if (err.syscall) {
+            console.error(`🔵 [fetchCastsWithPagination] Error syscall:`, err.syscall);
+          }
+        }
+        
         throw new Error(`Neynar fetch failed: ${errorDetails.message} (${errorDetails.name})`, { cause: fetchError });
       }
       
