@@ -60,34 +60,26 @@ async function fetchCastsWithPagination(
       });
       console.log(`🔵 [fetchCastsWithPagination] Headers: x-api-key present: ${!!NEYNAR_API_KEY}`);
       const fetchStart = Date.now();
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        console.log(`🔵 [fetchCastsWithPagination] ⏱️ Neynar request timeout after 15s`);
-        controller.abort();
-      }, 15000);
-      
-      let response;
       const fetchUrl = url.toString(); // Declare outside try block so it's accessible in catch
+      
+      console.log(`🔵 [fetchCastsWithPagination] Fetch URL: ${fetchUrl}`);
+      console.log(`🔵 [fetchCastsWithPagination] API Key first 4 chars: ${NEYNAR_API_KEY.substring(0, 4)}...`);
+      
+      // Try with minimal fetch options first - sometimes AbortController causes issues
+      let response;
       try {
-        // Use native fetch (available in Node.js 22)
-        // Add explicit error handling for network issues
-        console.log(`🔵 [fetchCastsWithPagination] Fetch URL: ${fetchUrl}`);
-        console.log(`🔵 [fetchCastsWithPagination] API Key first 4 chars: ${NEYNAR_API_KEY.substring(0, 4)}...`);
-        
+        // Use native fetch with minimal options
         response = await fetch(fetchUrl, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
             'x-api-key': NEYNAR_API_KEY,
-            'Content-Type': 'application/json',
           },
-          signal: controller.signal,
+          // Remove signal initially to see if that's causing the issue
         });
-        clearTimeout(timeoutId);
         const fetchTime = Date.now() - fetchStart;
         console.log(`🔵 [fetchCastsWithPagination] Neynar fetch completed in ${fetchTime}ms, status: ${response.status}`);
       } catch (fetchError: unknown) {
-        clearTimeout(timeoutId);
         const fetchTime = Date.now() - fetchStart;
         const error = fetchError instanceof Error ? fetchError : new Error(String(fetchError));
         
@@ -172,30 +164,20 @@ async function fetchCastsWithPagination(
     console.log(`🔵 [fetchCastsWithPagination] URL object test:`, new URL(urlString).toString());
     
     const fetchStart = Date.now();
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      console.log(`🔵 [fetchCastsWithPagination] ⏱️ Farcaster Kit request timeout after 15s`);
-      controller.abort();
-    }, 15000);
     
     let response;
     try {
-      // Try with minimal options first
-      const fetchOptions: RequestInit = {
+      // Try with minimal options - no AbortController to avoid potential issues
+      console.log(`🔵 [fetchCastsWithPagination] Making Farcaster Kit fetch call`);
+      response = await fetch(urlString, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
         },
-        signal: controller.signal,
-      };
-      
-      console.log(`🔵 [fetchCastsWithPagination] Making fetch call with options:`, JSON.stringify(fetchOptions, null, 2));
-      response = await fetch(urlString, fetchOptions);
-      clearTimeout(timeoutId);
+      });
       const fetchTime = Date.now() - fetchStart;
       console.log(`🔵 [fetchCastsWithPagination] ✅ Farcaster Kit fetch completed in ${fetchTime}ms, status: ${response.status}`);
     } catch (fetchError: unknown) {
-      clearTimeout(timeoutId);
       const fetchTime = Date.now() - fetchStart;
       const error = fetchError instanceof Error ? fetchError : new Error(String(fetchError));
       const errorDetails = {
