@@ -199,6 +199,14 @@ async function fetchCastsWithPagination(
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'Could not read error text');
         console.error(`🔵 [fetchCastsWithPagination] ❌ Neynar API error ${response.status}:`, errorText);
+        
+        // Handle 402 Payment Required - API endpoint requires paid plan
+        if (response.status === 402) {
+          console.warn(`🔵 [fetchCastsWithPagination] ⚠️ Neynar API requires paid plan. Endpoint: ${fetchUrl}`);
+          // Return empty array so pagination stops gracefully
+          return { casts: [], nextCursor: undefined };
+        }
+        
         throw new Error(`Neynar API error: ${response.status} ${response.statusText}`);
       }
       
@@ -217,6 +225,13 @@ async function fetchCastsWithPagination(
         name: error instanceof Error ? error.name : 'Unknown',
         stack: error instanceof Error ? error.stack?.split('\n').slice(0, 10) : undefined,
       });
+      // If it's a 402 error, we've already handled it above
+      // For other errors, check if it's a payment required error
+      if (error instanceof Error && error.message.includes('402')) {
+        console.warn(`🔵 [fetchCastsWithPagination] ⚠️ Neynar API requires paid plan`);
+        return { casts: [], nextCursor: undefined };
+      }
+      
       // Don't fallback to Farcaster Kit - it has SSL certificate issues
       // Re-throw the Neynar error so we can see what's wrong
       throw error;
@@ -457,13 +472,19 @@ export async function GET() {
       });
     }
     
+    // Check if this is a payment required error
+    const isPaymentRequired = errorMessage.includes('402') || errorMessage.includes('Payment Required');
+    
     // Return a more detailed error response (without circular references)
     const errorResponse: Record<string, unknown> = {
-      error: "Failed to fetch today's casts", 
+      error: isPaymentRequired 
+        ? "Neynar API requires a paid plan. Please upgrade your API key or use a different data source."
+        : "Failed to fetch today's casts", 
       details: errorMessage,
       type: errorName,
       timestamp: new Date().toISOString(),
       casts: [], // Return empty array so UI doesn't break
+      requiresPayment: isPaymentRequired,
       debug: {
         nodeVersion: process.version,
         fetchAvailable: typeof fetch !== 'undefined',
