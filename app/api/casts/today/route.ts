@@ -199,6 +199,8 @@ export async function GET() {
   console.log("🔵 [API /casts/today] Node version:", process.version);
   console.log("🔵 [API /casts/today] Fetch available:", typeof fetch !== 'undefined');
   console.log("🔵 [API /casts/today] NEYNAR_API_KEY present:", !!NEYNAR_API_KEY);
+  console.log("🔵 [API /casts/today] NEYNAR_API_KEY length:", NEYNAR_API_KEY?.length || 0);
+  console.log("🔵 [API /casts/today] NEYNAR_API_KEY first 10 chars:", NEYNAR_API_KEY?.substring(0, 10) || 'none');
   
   // Declare allCasts outside try block so it's accessible in catch block
   const allCasts: Cast[] = [];
