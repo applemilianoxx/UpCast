@@ -52,7 +52,8 @@ interface Cast {
 // These are well-known accounts that post frequently
 const POPULAR_FARCASTER_USERS = [
   "dwr", "v", "farcaster", "base", "optimism", "a16z", "paradigm",
-  "danromero", "jesse", "varunsrinivasan", "rish", "balajis"
+  "danromero", "jesse", "varunsrinivasan", "rish"
+  // Removed "balajis" - user not found (404)
 ];
 
 async function fetchWithRetry(
@@ -67,9 +68,13 @@ async function fetchWithRetry(
     // If rate limited (429), wait and retry
     if (response.status === 429) {
       const retryAfter = response.headers.get('Retry-After');
-      const waitTime = retryAfter 
+      let waitTime = retryAfter 
         ? parseInt(retryAfter, 10) * 1000 
         : Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+      
+      // Cap wait time at 30 seconds to avoid very long waits
+      const maxWaitTime = 30000; // 30 seconds
+      waitTime = Math.min(waitTime, maxWaitTime);
       
       if (attempt < maxRetries - 1) {
         console.warn(`🔵 [fetchWithRetry] ⚠️ Rate limited (429), waiting ${waitTime}ms before retry ${attempt + 1}/${maxRetries}`);
@@ -113,6 +118,8 @@ async function fetchCastsFromUser(
     if (!userResponse.ok) {
       if (userResponse.status === 429) {
         console.warn(`🔵 [fetchCastsFromUser] ⚠️ Rate limited getting user info for @${username} after retries`);
+      } else if (userResponse.status === 404) {
+        console.warn(`🔵 [fetchCastsFromUser] ⚠️ User @${username} not found (404) - skipping`);
       } else {
         console.warn(`🔵 [fetchCastsFromUser] ⚠️ Could not get user info for @${username}: ${userResponse.status}`);
       }
