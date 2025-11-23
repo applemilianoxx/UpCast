@@ -426,16 +426,37 @@ export async function GET() {
     }
     
     // Return a more detailed error response (without circular references)
-    return NextResponse.json(
-      { 
-        error: "Failed to fetch today's casts", 
-        details: errorMessage,
-        type: errorName,
-        timestamp: new Date().toISOString(),
-        casts: [], // Return empty array so UI doesn't break
+    const errorResponse: Record<string, unknown> = {
+      error: "Failed to fetch today's casts", 
+      details: errorMessage,
+      type: errorName,
+      timestamp: new Date().toISOString(),
+      casts: [], // Return empty array so UI doesn't break
+      debug: {
+        nodeVersion: process.version,
+        fetchAvailable: typeof fetch !== 'undefined',
+        neynarApiKeyPresent: !!NEYNAR_API_KEY,
+        neynarApiKeyLength: NEYNAR_API_KEY.length,
       },
-      { status: 500 }
-    );
+    };
+
+    // Add stack trace (first 10 lines) for debugging
+    if (error instanceof Error && error.stack) {
+      errorResponse.stack = error.stack.split('\n').slice(0, 10);
+    }
+
+    // Add cause if available
+    if (error instanceof Error) {
+      const cause = (error as Error & { cause?: unknown }).cause;
+      if (cause) {
+        errorResponse.cause = cause instanceof Error ? {
+          message: cause.message,
+          name: cause.name,
+        } : String(cause);
+      }
+    }
+
+    return NextResponse.json(errorResponse, { status: 500 });
   }
 }
 
