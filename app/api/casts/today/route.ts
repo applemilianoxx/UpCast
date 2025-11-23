@@ -12,7 +12,7 @@ async function getFetch(): Promise<typeof fetch> {
     const { fetch: undiciFetch } = await import('undici');
     console.log("🔵 [API] Using undici fetch for better serverless compatibility");
     return undiciFetch as typeof fetch;
-  } catch (e) {
+  } catch {
     console.log("🔵 [API] Using native fetch (undici not available)");
     return fetch;
   }
