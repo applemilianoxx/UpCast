@@ -49,11 +49,10 @@ interface Cast {
 }
 
 // List of popular Farcaster users to fetch casts from
-// These are well-known accounts that post frequently
+// Reduced to 5 most active users to avoid rate limits
 const POPULAR_FARCASTER_USERS = [
-  "dwr", "v", "farcaster", "base", "optimism", "a16z", "paradigm",
-  "danromero", "jesse", "varunsrinivasan", "rish"
-  // Removed "balajis" - user not found (404)
+  "dwr", "v", "farcaster", "base", "optimism"
+  // Reduced from 11 to 5 users to reduce API calls and avoid rate limits
 ];
 
 async function fetchWithRetry(
@@ -134,10 +133,13 @@ async function fetchCastsFromUser(
       return [];
     }
     
+    // Small delay between API calls to avoid rate limits
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     // Now fetch casts using FID
     const url = new URL(`${NEYNAR_API}/farcaster/feed/user/casts`);
     url.searchParams.set("fid", fid.toString());
-    url.searchParams.set("limit", "25"); // Get up to 25 casts per user
+    url.searchParams.set("limit", "15"); // Reduced to 15 casts per user to reduce API load
     
     console.log(`🔵 [fetchCastsFromUser] Fetching casts from @${username}: ${url.toString()}`);
     
@@ -212,9 +214,10 @@ async function fetchCastsWithPagination(
         const casts = await fetchCastsFromUser(username, safeFetch);
         allCasts.push(...casts);
         
-        // Add delay between users to avoid rate limits (500ms between requests)
+        // Add delay between users to avoid rate limits (2 seconds between requests)
+        // Each user requires 2 API calls (get FID + get casts), so we need longer delays
         if (i < POPULAR_FARCASTER_USERS.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 2000)); // 2 seconds between users
         }
       }
       
@@ -445,11 +448,19 @@ export async function GET() {
     const totalTime = Date.now() - startTime;
     console.log(`🔵 [API /casts/today] 🏁 Request completed in ${totalTime}ms`);
 
-    // Return top 20
-    return NextResponse.json({
-      casts: top20,
-      total: allCasts.length,
-    });
+    // Return top 20 with cache headers to reduce API calls
+    // Cache for 2 minutes (120 seconds) - today's casts don't change that frequently
+    return NextResponse.json(
+      {
+        casts: top20,
+        total: allCasts.length,
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+        },
+      }
+    );
   } catch (error) {
     const totalTime = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : "Unknown error";

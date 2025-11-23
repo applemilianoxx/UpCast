@@ -19,32 +19,30 @@ export default function ProfileTab() {
   
   // Debug: Log context to see what's available
   if (typeof window !== 'undefined' && context?.user) {
-    console.log('🔵 [ProfileTab] MiniKit user context:', context.user);
+    console.log('MiniKit user context:', context.user);
   }
   
   // MiniKit user context is not fully typed, so we cast to a loose type for now
-  // Add null safety
-  const user = (context?.user as {
+  const user = context?.user as {
     displayName?: string;
     username?: string;
     fid?: number;
     pfp?: { url?: string };
     avatar?: string;
     profileImage?: string;
-  } | undefined) || null;
+  } | undefined;
   
   // Try multiple possible profile picture properties
   const userAny = context?.user as Record<string, unknown> | undefined;
   const profileImageUrl = 
-    (user?.pfp?.url) || 
-    (user?.avatar) || 
-    (user?.profileImage) || 
+    user?.pfp?.url || 
+    user?.avatar || 
+    user?.profileImage || 
     (userAny?.pfpUrl as string | undefined) || 
     (userAny?.avatarUrl as string | undefined) ||
     ((userAny?.pfp as Record<string, unknown> | undefined)?.url as string | undefined) ||
     ((userAny?.profile as Record<string, unknown> | undefined)?.image as string | undefined) ||
-    (userAny?.profileImage as string | undefined) ||
-    undefined; // Explicitly set to undefined if nothing found
+    (userAny?.profileImage as string | undefined);
   const [userCasts, setUserCasts] = useState<Array<{
     hash: string;
     text: string;
@@ -69,38 +67,28 @@ export default function ProfileTab() {
     async function fetchUserCasts() {
       if (!user?.fid) {
         console.log("No FID available, skipping fetch");
-        setUserCasts([]);
-        setCastsLoading(false);
         return;
       }
 
       try {
         setCastsLoading(true);
-        console.log("🔵 [ProfileTab] Fetching user casts for FID:", user.fid);
+        console.log("Fetching user casts for FID:", user.fid);
         const response = await fetch(`/api/casts/user?fid=${user.fid}`);
-        console.log("🔵 [ProfileTab] User casts response status:", response.status);
+        console.log("User casts response status:", response.status);
         
-        const data = await response.json().catch((err) => {
-          console.error("🔵 [ProfileTab] Failed to parse JSON:", err);
-          return { casts: [], error: "Failed to parse response" };
-        });
-        
-        console.log("🔵 [ProfileTab] Received user casts data:", data);
-        
-        // Handle API errors gracefully
-        if (data.error) {
-          console.warn("🔵 [ProfileTab] API returned error:", data.error);
-          setUserCasts([]);
-          return;
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error("API error:", errorData);
+          throw new Error(errorData.error || "Failed to fetch user casts");
         }
         
-        // Ensure casts is an array
-        const casts = Array.isArray(data.casts) ? data.casts : [];
-        console.log('🔵 [ProfileTab] Fetched user casts:', casts.length, 'Total:', data.total);
+        const data = await response.json();
+        console.log("Received user casts data:", data);
+        console.log('Fetched user casts:', data.casts?.length || 0, 'Total:', data.total);
         
-        setUserCasts(casts);
+        setUserCasts(data.casts || []);
       } catch (error) {
-        console.error("🔵 [ProfileTab] Error fetching user casts:", error);
+        console.error("Error fetching user casts:", error);
         setUserCasts([]);
       } finally {
         setCastsLoading(false);
@@ -110,32 +98,16 @@ export default function ProfileTab() {
     fetchUserCasts();
   }, [user?.fid]);
 
-  // Calculate stats from userCasts with safety checks
+  // Calculate stats from userCasts
   const stats: UserStats = {
-    totalCasts: Array.isArray(userCasts) ? userCasts.length : 0,
-    topRankedCasts: Array.isArray(userCasts) 
-      ? userCasts.filter((c) => c && typeof c.score === 'number' && c.score > 100).length 
-      : 0,
+    totalCasts: userCasts.length,
+    topRankedCasts: userCasts.filter((c) => c.score > 100).length,
     spotlightWins: 2, // TODO: Fetch from API
     totalBids: 15, // TODO: Fetch from API
     totalPoints: 1250, // TODO: Fetch from API
     bestRank: 3, // TODO: Calculate from actual ranking
   };
 
-
-  // Safety check - if no user context, show loading/error state
-  if (!context || !user) {
-    return (
-      <div className={styles.container}>
-        <div className={styles.emptyState}>
-          <p>Loading profile...</p>
-          <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '8px' }}>
-            Please make sure you're logged in to Farcaster
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className={styles.container}>
@@ -144,17 +116,13 @@ export default function ProfileTab() {
           {profileImageUrl ? (
             <img
               src={profileImageUrl}
-              alt={user?.displayName || user?.username || "User"}
+              alt={user?.displayName || "User"}
               className={styles.avatar}
               onError={(e) => {
                 // Fallback to placeholder if image fails to load
-                try {
-                  e.currentTarget.style.display = 'none';
-                  const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
-                  if (placeholder) placeholder.style.display = 'flex';
-                } catch (err) {
-                  console.error("Error handling image load:", err);
-                }
+                e.currentTarget.style.display = 'none';
+                const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
+                if (placeholder) placeholder.style.display = 'flex';
               }}
             />
           ) : null}
@@ -162,11 +130,11 @@ export default function ProfileTab() {
             className={styles.avatarPlaceholder}
             style={{ display: profileImageUrl ? 'none' : 'flex' }}
           >
-            {(user?.displayName?.[0] || user?.username?.[0] || "U").toUpperCase()}
+            {user?.displayName?.[0] || user?.username?.[0]?.toUpperCase() || "U"}
           </div>
           <div className={styles.userInfo}>
             <h1 className={styles.userName}>
-              {user?.displayName || user?.username || "User"}
+              {user?.displayName || "User"}
             </h1>
             <p className={styles.userHandle}>
               @{user?.username || "username"}
@@ -196,29 +164,27 @@ export default function ProfileTab() {
           </div>
         ) : (
           <div className={styles.castsList}>
-            {userCasts
-              .filter((cast) => cast && cast.hash) // Filter out any null/undefined casts
-              .map((cast) => (
-                <div key={cast.hash || `cast-${Math.random()}`} className={styles.castCard}>
-                  <div className={styles.castContent}>
-                    <p className={styles.castText}>{cast.text || "No text"}</p>
-                    <div className={styles.castStats}>
-                      <span className={styles.statItem}>
-                        <Flame className={styles.statIcon} size={14} />
-                        {cast.reactions?.likes || 0}
-                      </span>
-                      <span className={styles.statItem}>
-                        <Square className={styles.statIcon} size={14} />
-                        {cast.reactions?.recasts || 0}
-                      </span>
-                      <span className={styles.statItem}>
-                        <MessageSquare className={styles.statIcon} size={14} />
-                        {cast.reactions?.replies || 0}
-                      </span>
-                    </div>
+            {userCasts.map((cast) => (
+              <div key={cast.hash} className={styles.castCard}>
+                <div className={styles.castContent}>
+                  <p className={styles.castText}>{cast.text}</p>
+                  <div className={styles.castStats}>
+                    <span className={styles.statItem}>
+                      <Flame className={styles.statIcon} size={14} />
+                      {cast.reactions?.likes || 0}
+                    </span>
+                    <span className={styles.statItem}>
+                      <Square className={styles.statIcon} size={14} />
+                      {cast.reactions?.recasts || 0}
+                    </span>
+                    <span className={styles.statItem}>
+                      <MessageSquare className={styles.statIcon} size={14} />
+                      {cast.reactions?.replies || 0}
+                    </span>
                   </div>
                 </div>
-              ))}
+              </div>
+            ))}
           </div>
         )}
       </section>
