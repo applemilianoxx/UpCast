@@ -492,7 +492,9 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json(errorResponse, { status: 500 });
+    // Return 200 with empty casts array so UI doesn't break
+    // The error details are still included for debugging
+    return NextResponse.json(errorResponse);
   }
 }
 
