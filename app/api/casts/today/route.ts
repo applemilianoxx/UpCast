@@ -241,21 +241,52 @@ export async function GET() {
       
       for (const cast of casts) {
         const castRecord = cast as unknown as Record<string, unknown>;
-        const timestamp = (castRecord.timestamp as number | undefined) || 
-                         (castRecord.publishedAt as number | undefined) || 
-                         Date.now();
-
-        // If we've gone past today, stop fetching
-        if (timestamp < todayStartTimestamp) {
-          pastCastsCount++;
-          if (pastCastsCount === 1) {
-            console.log(`🔵 [API /casts/today] ⚠️ Found cast from past (${new Date(timestamp).toISOString()}), stopping pagination`);
-          }
-          hasMore = false;
-          break;
+        
+        // Neynar API returns timestamps in different formats - try multiple fields
+        let timestamp: number;
+        if (castRecord.timestamp) {
+          timestamp = typeof castRecord.timestamp === 'string' 
+            ? new Date(castRecord.timestamp).getTime() 
+            : (castRecord.timestamp as number);
+        } else if (castRecord.published_at) {
+          timestamp = typeof castRecord.published_at === 'string'
+            ? new Date(castRecord.published_at).getTime()
+            : (castRecord.published_at as number);
+        } else if (castRecord.publishedAt) {
+          timestamp = typeof castRecord.publishedAt === 'string'
+            ? new Date(castRecord.publishedAt).getTime()
+            : (castRecord.publishedAt as number);
+        } else if (castRecord.created_at) {
+          timestamp = typeof castRecord.created_at === 'string'
+            ? new Date(castRecord.created_at).getTime()
+            : (castRecord.created_at as number);
+        } else {
+          // If no timestamp found, skip this cast
+          console.warn(`🔵 [API /casts/today] ⚠️ Cast missing timestamp:`, {
+            hash: castRecord.hash || castRecord.id,
+            keys: Object.keys(castRecord),
+          });
+          continue;
+        }
+        
+        // Convert to milliseconds if it's in seconds (Neynar sometimes returns seconds)
+        if (timestamp < 10000000000) {
+          timestamp = timestamp * 1000;
         }
 
-        // Only include casts from today
+        // Log first few casts for debugging
+        if (todayCastsCount + pastCastsCount + futureCastsCount < 3) {
+          console.log(`🔵 [API /casts/today] Sample cast timestamp:`, {
+            castHash: (castRecord.hash as string | undefined)?.substring(0, 10),
+            timestamp,
+            timestampDate: new Date(timestamp).toISOString(),
+            todayStart: new Date(todayStartTimestamp).toISOString(),
+            now: new Date(nowTimestamp).toISOString(),
+            isToday: timestamp >= todayStartTimestamp && timestamp <= nowTimestamp,
+          });
+        }
+        
+        // Only include casts from today (don't break on past casts - process all)
         if (timestamp >= todayStartTimestamp && timestamp <= nowTimestamp) {
           todayCastsCount++;
           const author = castRecord.author as { 
@@ -308,6 +339,10 @@ export async function GET() {
         pastCasts: pastCastsCount,
         futureCasts: futureCastsCount,
         allCastsTotal: allCasts.length,
+        dateRange: {
+          todayStart: new Date(todayStartTimestamp).toISOString(),
+          now: new Date(nowTimestamp).toISOString(),
+        },
       });
 
       // Check if we should continue
