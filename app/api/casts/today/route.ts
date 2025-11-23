@@ -286,8 +286,13 @@ export async function GET() {
           });
         }
         
-        // Only include casts from today (don't break on past casts - process all)
-        if (timestamp >= todayStartTimestamp && timestamp <= nowTimestamp) {
+        // Categorize casts by date
+        if (timestamp < todayStartTimestamp) {
+          pastCastsCount++;
+        } else if (timestamp > nowTimestamp) {
+          futureCastsCount++;
+        } else {
+          // Only include casts from today
           todayCastsCount++;
           const author = castRecord.author as { 
             fid?: number; 
@@ -328,8 +333,6 @@ export async function GET() {
           };
 
           allCasts.push(processedCast);
-        } else {
-          futureCastsCount++;
         }
       }
       
