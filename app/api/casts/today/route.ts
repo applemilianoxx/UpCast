@@ -14,7 +14,7 @@ async function getFetch(): Promise<typeof fetch> {
     // node-fetch v2 exports default, v3 exports named
     const fetchFn = (nodeFetch.default || nodeFetch) as typeof fetch;
     return fetchFn as unknown as typeof fetch;
-  } catch (nodeFetchError) {
+  } catch {
     console.log("🔵 [API] node-fetch not available, trying undici...");
   }
   
