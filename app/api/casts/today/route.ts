@@ -49,43 +49,33 @@ interface Cast {
 }
 
 // List of popular Farcaster users to fetch casts from
-// Reduced to 5 most active users to avoid rate limits
+// Reduced to 3 most active users to minimize rate limits
 const POPULAR_FARCASTER_USERS = [
-  "dwr", "v", "farcaster", "base", "optimism"
-  // Reduced from 11 to 5 users to reduce API calls and avoid rate limits
+  "dwr", "v", "farcaster"
+  // Reduced to 3 users to minimize API calls and avoid rate limits
 ];
 
 async function fetchWithRetry(
   url: string,
   options: RequestInit,
   safeFetch: typeof fetch,
-  maxRetries = 3
+  maxRetries = 1 // Reduced to 1 retry to fail fast on rate limits
 ): Promise<Response> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const response = await safeFetch(url, options);
     
-    // If rate limited (429), wait and retry
+    // If rate limited (429), skip retry and return immediately
+    // We're fetching from multiple users, so it's better to skip one than wait
     if (response.status === 429) {
-      const retryAfter = response.headers.get('Retry-After');
-      let waitTime = retryAfter 
-        ? parseInt(retryAfter, 10) * 1000 
-        : Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
-      
-      // Cap wait time at 30 seconds to avoid very long waits
-      const maxWaitTime = 30000; // 30 seconds
-      waitTime = Math.min(waitTime, maxWaitTime);
-      
-      if (attempt < maxRetries - 1) {
-        console.warn(`🔵 [fetchWithRetry] ⚠️ Rate limited (429), waiting ${waitTime}ms before retry ${attempt + 1}/${maxRetries}`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        continue;
-      }
+      console.warn(`🔵 [fetchWithRetry] ⚠️ Rate limited (429) - skipping to avoid long waits`);
+      return response; // Return immediately, don't retry
     }
     
+    // For other errors, return the response
     return response;
   }
   
-  // If all retries failed, return the last response
+  // If we get here, make one final attempt
   return await safeFetch(url, options);
 }
 
@@ -133,8 +123,8 @@ async function fetchCastsFromUser(
       return [];
     }
     
-    // Small delay between API calls to avoid rate limits
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Small delay between API calls to avoid rate limits (1 second between get FID and get casts)
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     // Now fetch casts using FID
     const url = new URL(`${NEYNAR_API}/farcaster/feed/user/casts`);
@@ -214,10 +204,10 @@ async function fetchCastsWithPagination(
         const casts = await fetchCastsFromUser(username, safeFetch);
         allCasts.push(...casts);
         
-        // Add delay between users to avoid rate limits (2 seconds between requests)
+        // Add delay between users to avoid rate limits (3 seconds between requests)
         // Each user requires 2 API calls (get FID + get casts), so we need longer delays
         if (i < POPULAR_FARCASTER_USERS.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 2000)); // 2 seconds between users
+          await new Promise(resolve => setTimeout(resolve, 3000)); // 3 seconds between users
         }
       }
       
