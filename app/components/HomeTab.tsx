@@ -96,24 +96,27 @@ export default function HomeTab() {
         console.log("🏠 [HomeTab] Response ok:", response.ok);
         console.log("🏠 [HomeTab] Response headers:", Object.fromEntries(response.headers.entries()));
         
+        // Parse JSON regardless of status - we handle errors in the data
+        const data = await response.json();
+        
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error("🏠 [HomeTab] ❌ Response not OK, error text:", errorText);
-          
-          let errorData;
-          try {
-            errorData = JSON.parse(errorText);
-            console.error("🏠 [HomeTab] ❌ Parsed error data:", errorData);
-          } catch (e) {
-            console.error("🏠 [HomeTab] ❌ Could not parse error as JSON:", e);
-            errorData = { error: errorText };
+          console.error("🏠 [HomeTab] ❌ Response not OK, status:", response.status);
+          console.error("🏠 [HomeTab] ❌ Error data:", data);
+          // If response is not OK, check if we have any casts to show
+          if (data.casts && Array.isArray(data.casts) && data.casts.length > 0) {
+            console.log("🏠 [HomeTab] ⚠️ Response not OK but we have casts, using them");
+            setRankedCasts(data.casts);
+            setLoading(false);
+            return;
           }
-          
-          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+          // Otherwise, just show empty state (don't throw error)
+          console.log("🏠 [HomeTab] ⚠️ Response not OK and no casts, showing empty state");
+          setRankedCasts([]);
+          setLoading(false);
+          return;
         }
         
-        console.log("🏠 [HomeTab] ✅ Response OK, parsing JSON...");
-        const data = await response.json();
+        console.log("🏠 [HomeTab] ✅ Response OK, processing data...");
         const totalTime = Date.now() - startTime;
         console.log(`🏠 [HomeTab] ✅ JSON parsed in ${totalTime}ms total`);
         console.log("🏠 [HomeTab] 📦 Received data structure:", {
@@ -129,6 +132,23 @@ export default function HomeTab() {
           } : null,
         });
         console.log("🏠 [HomeTab] 📊 Full data object:", data);
+        
+        // Handle case where API returns error but with 200 status
+        if (data.error) {
+          console.warn("🏠 [HomeTab] ⚠️ API returned error in response:", data.error);
+          console.warn("🏠 [HomeTab] ⚠️ Error details:", data.details);
+          // Still try to use casts if available, otherwise empty array
+          if (data.casts && Array.isArray(data.casts) && data.casts.length > 0) {
+            console.log("🏠 [HomeTab] ⚠️ Error but we have casts, using them");
+            setRankedCasts(data.casts);
+            setLoading(false);
+            return;
+          }
+          console.log("🏠 [HomeTab] ⚠️ Error and no casts, showing empty state");
+          setRankedCasts([]);
+          setLoading(false);
+          return;
+        }
         
         if (data.casts && Array.isArray(data.casts)) {
           console.log(`🏠 [HomeTab] ✅ Setting ${data.casts.length} casts to state`);
