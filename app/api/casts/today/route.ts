@@ -42,7 +42,10 @@ async function fetchCastsWithPagination(
       // Note: The endpoint requires a trailing slash according to docs
       const todayDate = new Date(todayStartTimestamp).toISOString().split('T')[0]; // YYYY-MM-DD
       const url = new URL(`${NEYNAR_API}/farcaster/cast/search/`); // Note: trailing slash
-      url.searchParams.set("q", `* after:${todayDate}`); // Search for all casts after today's date
+      
+      // Try simple query first - just get recent casts, we'll filter by date in code
+      // This avoids potential issues with the 'after:' operator
+      url.searchParams.set("q", "*"); // Search for all casts
       url.searchParams.set("sort_type", "algorithmic"); // Sort by engagement
       url.searchParams.set("limit", Math.min(limit, 100).toString()); // Max 100 per Neynar API
       if (cursor) {
