@@ -229,6 +229,27 @@ async function fetchCastsWithPagination(
 }
 
 export async function GET() {
+  // Homepage API temporarily disabled to avoid rate limits
+  // Only profile page API (/api/casts/user) is active
+  console.log("🔵 [API /casts/today] GET request received - API disabled to avoid rate limits");
+  
+  // Return empty response with cache headers
+  return NextResponse.json(
+    {
+      casts: [],
+      total: 0,
+      message: "Homepage casts temporarily disabled to avoid rate limits. Profile page is active.",
+    },
+    {
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+      },
+    }
+  );
+  
+  // DISABLED CODE BELOW - All the fetching logic is disabled to avoid rate limits
+  // Uncomment the code below to re-enable homepage casts fetching
+  /*
   const startTime = Date.now();
   console.log("🔵 [API /casts/today] GET request received");
   console.log("🔵 [API /casts/today] Node version:", process.version);
@@ -545,5 +566,6 @@ export async function GET() {
     // The error details are still included for debugging
     return NextResponse.json(errorResponse);
   }
+  */
 }
 
