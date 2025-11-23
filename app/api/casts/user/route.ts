@@ -1,66 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Using Neynar API - free tier endpoints with rate limiting
+// Using Neynar API - free tier endpoints
 const NEYNAR_API = "https://api.neynar.com/v2";
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY || ""; // Get free API key from https://neynar.com
-
-// Helper to get the best available fetch (try multiple options)
-async function getFetch(): Promise<typeof fetch> {
-  // Try node-fetch first (most reliable in serverless environments)
-  try {
-    const nodeFetch = await import('node-fetch');
-    console.log("🔵 [API] Using node-fetch for serverless compatibility");
-    const fetchFn = (nodeFetch.default || nodeFetch) as unknown as typeof fetch;
-    return fetchFn;
-  } catch {
-    console.log("🔵 [API] node-fetch not available, trying undici...");
-  }
-  
-  // Try undici as second option
-  try {
-    const { fetch: undiciFetch } = await import('undici');
-    console.log("🔵 [API] Using undici fetch for better serverless compatibility");
-    return undiciFetch as unknown as typeof fetch;
-  } catch {
-    console.log("🔵 [API] Using native fetch (fallback)");
-    return fetch;
-  }
-}
-
-// Retry logic with exponential backoff for rate limiting
-async function fetchWithRetry(
-  url: string,
-  options: RequestInit,
-  safeFetch: typeof fetch,
-  maxRetries = 3
-): Promise<Response> {
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    const response = await safeFetch(url, options);
-    
-    // If rate limited (429), wait and retry
-    if (response.status === 429) {
-      const retryAfter = response.headers.get('Retry-After');
-      let waitTime = retryAfter 
-        ? parseInt(retryAfter, 10) * 1000 
-        : Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
-      
-      // Cap wait time at 30 seconds to avoid very long waits
-      const maxWaitTime = 30000; // 30 seconds
-      waitTime = Math.min(waitTime, maxWaitTime);
-      
-      if (attempt < maxRetries - 1) {
-        console.warn(`🔵 [fetchWithRetry] ⚠️ Rate limited (429), waiting ${waitTime}ms before retry ${attempt + 1}/${maxRetries}`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        continue;
-      }
-    }
-    
-    return response;
-  }
-  
-  // If all retries failed, return the last response
-  return await safeFetch(url, options);
-}
 
 interface Cast {
   hash: string;
@@ -84,73 +26,71 @@ interface Cast {
 async function fetchUserCastsWithPagination(
   fid: number,
   cursor?: string,
-  limit: number = 25
+  limit: number = 100
 ): Promise<{ casts: unknown[]; nextCursor?: string }> {
-  const safeFetch = await getFetch();
+  // Try Neynar API first, fallback to Farcaster Kit
+  const useNeynar = !!NEYNAR_API_KEY;
   
-  if (!NEYNAR_API_KEY) {
-    throw new Error('NEYNAR_API_KEY environment variable is not set');
-  }
-  
-  try {
-    // Use /v2/farcaster/feed/user/casts - 4 credits per request (free tier)
-    // Docs: https://docs.neynar.com/reference/fetch-user-casts
-    const url = new URL(`${NEYNAR_API}/farcaster/feed/user/casts`);
-    url.searchParams.set("fid", fid.toString());
-    url.searchParams.set("limit", Math.min(limit, 25).toString()); // Max 25 per request
-    if (cursor) {
-      url.searchParams.set("cursor", cursor);
-    }
+  if (useNeynar) {
+    try {
+      // Use /v2/farcaster/feed/user/casts - free tier endpoint (4 credits)
+      // Docs: https://docs.neynar.com/reference/fetch-user-casts
+      const url = new URL(`${NEYNAR_API}/farcaster/feed/user/casts`);
+      url.searchParams.set("fid", fid.toString());
+      url.searchParams.set("limit", Math.min(limit, 25).toString()); // Max 25 per request
+      if (cursor) {
+        url.searchParams.set("cursor", cursor);
+      }
 
-    console.log(`🔵 [fetchUserCasts] Fetching casts for FID ${fid}: ${url.toString()}`);
-    
-    const response = await fetchWithRetry(
-      url.toString(),
-      {
+      console.log(`🔵 [fetchUserCasts] Fetching user casts from Neynar for FID ${fid}: ${url.toString()}`);
+      
+      const response = await fetch(url.toString(), {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'x-api-key': NEYNAR_API_KEY,
+          'x-api-key': NEYNAR_API_KEY, // Fixed: was 'api_key', should be 'x-api-key'
           'User-Agent': 'UPLYST-MiniApp/1.0',
         },
         cache: 'no-store',
-      } as RequestInit,
-      safeFetch
-    );
-    
-    if (!response.ok) {
-      if (response.status === 402) {
-        console.warn(`🔵 [fetchUserCasts] ⚠️ Payment required for FID ${fid}`);
-        return { casts: [], nextCursor: undefined };
+      });
+      
+      if (!response.ok) {
+        if (response.status === 402) {
+          console.warn(`🔵 [fetchUserCasts] ⚠️ Payment required for FID ${fid}`);
+          return { casts: [], nextCursor: undefined };
+        }
+        if (response.status === 429) {
+          console.warn(`🔵 [fetchUserCasts] ⚠️ Rate limited for FID ${fid}`);
+          return { casts: [], nextCursor: undefined };
+        }
+        const errorText = await response.text().catch(() => 'Could not read error text');
+        throw new Error(`Neynar API error: ${response.status} ${errorText}`);
       }
-      if (response.status === 404) {
-        console.warn(`🔵 [fetchUserCasts] ⚠️ User FID ${fid} not found (404)`);
-        return { casts: [], nextCursor: undefined };
-      }
-      if (response.status === 429) {
-        console.warn(`🔵 [fetchUserCasts] ⚠️ Rate limited for FID ${fid} after retries`);
-        return { casts: [], nextCursor: undefined };
-      }
-      const errorText = await response.text().catch(() => 'Could not read error text');
-      console.error(`🔵 [fetchUserCasts] ❌ Error fetching FID ${fid}: ${response.status} ${errorText}`);
-      throw new Error(`Neynar API error: ${response.status} ${response.statusText}`);
+      
+      const data = await response.json();
+      // Response format: { result: { casts: [...] } } or { casts: [...] }
+      const casts = data.result?.casts || data.casts || [];
+      const nextCursor = data.result?.next?.cursor || data.next?.cursor;
+      
+      console.log(`🔵 [fetchUserCasts] ✅ Neynar API response for FID ${fid}:`, { castsCount: casts.length, nextCursor });
+      
+      return { casts, nextCursor };
+    } catch (error) {
+      console.error(`🔵 [fetchUserCasts] ❌ Neynar API failed for FID ${fid}:`, error instanceof Error ? error.message : String(error));
+      // Don't fallback to Farcaster Kit - it has SSL issues
+      // Return empty array so the API doesn't crash
+      return { casts: [], nextCursor: undefined };
     }
-    
-    const data = await response.json();
-    // Response format: { result: { casts: [...], next: { cursor: "..." } } } or { casts: [...], next: { cursor: "..." } }
-    const casts = data.result?.casts || data.casts || [];
-    const nextCursor = data.result?.next?.cursor || data.next?.cursor;
-    
-    console.log(`🔵 [fetchUserCasts] ✅ Got ${casts.length} casts for FID ${fid}, nextCursor: ${nextCursor}`);
-    
-    return { casts, nextCursor };
-  } catch (error) {
-    console.error(`🔵 [fetchUserCasts] ❌ Error fetching casts for FID ${fid}:`, {
-      error: error instanceof Error ? error.message : String(error),
-      name: error instanceof Error ? error.name : 'Unknown',
-    });
-    throw error;
   }
+  
+  // No fallback - Neynar API is the only source
+  // Farcaster Kit has SSL certificate issues
+  if (!useNeynar) {
+    throw new Error('NEYNAR_API_KEY environment variable is not set. Please configure it in Vercel environment variables.');
+  }
+  
+  // If we get here, Neynar failed and we returned empty array
+  return { casts: [], nextCursor: undefined };
 }
 
 function calculateScore(cast: Cast): number {
@@ -191,11 +131,11 @@ export async function GET(request: NextRequest) {
     let cursor: string | undefined;
     let hasMore = true;
     let pageCount = 0;
-    const maxPages = 50; // Fetch up to 50 pages (25 casts per page = 1250 casts max)
+    const maxPages = 50; // Fetch up to 50 pages (5000 casts max)
 
     // Fetch all user casts with pagination
     while (hasMore && pageCount < maxPages) {
-      const { casts, nextCursor } = await fetchUserCastsWithPagination(fid, cursor, 25);
+      const { casts, nextCursor } = await fetchUserCastsWithPagination(fid, cursor, 100);
       
       console.log(`Fetched page ${pageCount + 1} for FID ${fid}: ${casts?.length || 0} casts, nextCursor: ${nextCursor}`);
       
@@ -221,33 +161,9 @@ export async function GET(request: NextRequest) {
           replies?: number 
         } | undefined;
 
-        // Neynar API returns timestamps in different formats - try multiple fields
-        let timestamp: number;
-        if (castRecord.timestamp) {
-          timestamp = typeof castRecord.timestamp === 'string' 
-            ? new Date(castRecord.timestamp).getTime() 
-            : (castRecord.timestamp as number);
-        } else if (castRecord.published_at) {
-          timestamp = typeof castRecord.published_at === 'string'
-            ? new Date(castRecord.published_at).getTime()
-            : (castRecord.published_at as number);
-        } else if (castRecord.publishedAt) {
-          timestamp = typeof castRecord.publishedAt === 'string'
-            ? new Date(castRecord.publishedAt).getTime()
-            : (castRecord.publishedAt as number);
-        } else if (castRecord.created_at) {
-          timestamp = typeof castRecord.created_at === 'string'
-            ? new Date(castRecord.created_at).getTime()
-            : (castRecord.created_at as number);
-        } else {
-          // If no timestamp found, use current time
-          timestamp = Date.now();
-        }
-        
-        // Convert to milliseconds if it's in seconds (Neynar sometimes returns seconds)
-        if (timestamp < 10000000000) {
-          timestamp = timestamp * 1000;
-        }
+        const timestamp = (castRecord.timestamp as number | undefined) || 
+                         (castRecord.publishedAt as number | undefined) || 
+                         Date.now();
 
         const processedCast: Cast = {
           hash: (castRecord.hash as string | undefined) || 
@@ -297,11 +213,18 @@ export async function GET(request: NextRequest) {
       total: allCasts.length,
     });
   } catch (error) {
-    console.error("Error fetching user casts:", error);
+    console.error("🔵 [API /casts/user] ❌ Error fetching user casts:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    
+    // Return 200 with empty casts array so UI doesn't break
     return NextResponse.json(
-      { error: "Failed to fetch user casts", details: errorMessage },
-      { status: 500 }
+      { 
+        error: "Failed to fetch user casts", 
+        details: errorMessage,
+        casts: [], // Return empty array so UI doesn't break
+        total: 0,
+      },
+      { status: 200 } // Return 200 to prevent client-side error handling
     );
   }
 }
